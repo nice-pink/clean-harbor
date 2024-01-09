@@ -1,0 +1,10 @@
+#!/bin/bash
+
+app=$1
+echo "Build $app..."
+
+mkdir -p bin
+cd cmd/$app
+go build -o ../../bin
+cd ../..
+echo "Done!"

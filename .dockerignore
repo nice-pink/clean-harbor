@@ -1,0 +1,13 @@
+# misc
+.DS_Store
+*/.DS_Store
+
+# git
+.git/
+.gitignore
+
+# 
+bin/
+.env
+
+Dockerfile
