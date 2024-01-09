@@ -17,18 +17,17 @@ type Image struct {
 	Tag     string
 }
 
-func GetImagesByRepo(folder string, repoUrl string) ([]string, error) {
+func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]string, error) {
 	pattern := ".*(" + repoUrl + ".*)"
 	replacement := "${1}"
-	values, err := GetImages(folder, pattern, replacement, true)
+	values, err := GetImages(folder, pattern, replacement, extensions, true)
 	if err != nil {
 		fmt.Println(err)
 	}
 	return values, err
 }
 
-func GetImages(folder string, pattern string, replacement string, recursive bool) ([]string, error) {
-	extensions := []string{".yaml", ".yml"}
+func GetImages(folder string, pattern string, replacement string, extensions []string, recursive bool) ([]string, error) {
 	values, err := filesystem.GetRegexInAllFiles(folder, true, pattern, replacement, extensions)
 	if err != nil {
 		fmt.Println(err)

@@ -9,5 +9,6 @@ import (
 func main() {
 	base := os.Getenv("REPO_BASE")
 	folder := os.Getenv("REPO_FOLDER")
-	manifestcrawler.GetImagesByRepo(folder, base)
+	extensions := []string{".yaml", ".yml", ".kustomization"}
+	manifestcrawler.GetImagesByRepo(folder, base, extensions)
 }
