@@ -21,7 +21,7 @@ type HarborTag struct {
 
 type HarborArtifact struct {
 	Tags    []HarborTag
-	ID      string
-	Digest  int
+	ID      int
+	Digest  string
 	Created string `json:"push_time"`
 }

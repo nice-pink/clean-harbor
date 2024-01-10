@@ -1,4 +1,4 @@
-package network
+package models
 
 type Auth struct {
 	BasicUser     string

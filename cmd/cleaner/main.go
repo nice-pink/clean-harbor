@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/nice-pink/clean-harbor/pkg/cleaner"
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/clean-harbor/pkg/request"
@@ -15,8 +16,10 @@ func main() {
 		BasicAuth: models.Auth{BasicUser: os.Getenv("HARBOR_USERNAME"), BasicPassword: os.Getenv("HARBOR_PASSWORD")},
 	}
 
-	r := &request.Requester{}
-	h := harbor.NewHarbor(r, config)
+	requester := &request.Requester{}
+	h := harbor.NewHarbor(requester, config)
 
-	h.GetAll()
+	cleaner := cleaner.NewCleaner(h)
+	extensions := []string{".yaml"}
+	cleaner.FindUnused("../../pkg/test/repo", "quay.io", extensions)
 }

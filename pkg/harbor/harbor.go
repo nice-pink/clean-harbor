@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
-	"github.com/nice-pink/clean-harbor/pkg/network"
 )
 
 // dependencies
 
 type Requester interface {
-	Get(url string, auth network.Auth, printBody bool) ([]byte, error)
-	Delete(url string, auth network.Auth) (bool, error)
+	Get(url string, auth models.Auth, printBody bool) ([]byte, error)
+	Delete(url string, auth models.Auth) (bool, error)
 }
 
 // harbor
@@ -21,7 +21,7 @@ type Requester interface {
 type HarborConfig struct {
 	DryRun    bool
 	HarborUrl string
-	BasicAuth network.Auth
+	BasicAuth models.Auth
 }
 
 type Harbor struct {
@@ -45,37 +45,65 @@ func NewHarbor(requester Requester, config HarborConfig) *Harbor {
 func (h *Harbor) GetAll() []models.HarborProject {
 	projects := []models.HarborProject{}
 
+	// get projects
 	index := 1
 	for true {
-		err, projects_page := h.GetProjects(index, 100)
+		err, projects_page := h.GetProjects(index, 100, false)
 		if err != nil {
-			fmt.Println(err)
 			return nil
 		}
 		if len(projects_page) > 0 {
 			projects = append(projects, projects_page...)
 		} else {
+			fmt.Println("Break", strconv.Itoa(len(projects)))
 			break
 		}
 		index++
 	}
 
-	// for pIndex, project := range projects {
-	// 	err, repos := GetRepos(project.Name, 1, 100)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 		return nil
-	// 	}
+	// iterate over projects
+	for pIndex, project := range projects {
+		// get repos
+		index = 1
+		for true {
+			err, repos := h.GetRepos(project.Name, index, 100, false)
+			if err != nil {
+				continue
+			}
 
-	// 	projects[pIndex].Repos = repos
+			if len(repos) > 0 {
+				projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
+			} else {
+				// fmt.Println("Got repos:", strconv.Itoa(len(projects[pIndex].Repos)))
+				break
+			}
+			index++
+		}
 
-	// 	// for _, repo := range repos {
+		// get artifacts
+		for rIndex, repo := range projects[pIndex].Repos {
+			index = 1
+			for true {
+				// fmt.Println("Get", project.Name, repo.Name)
+				repoName := strings.Split(repo.Name, "/")[1]
+				err, artifacts := h.GetArtifacts(project.Name, repoName, index, 100, false)
+				if err != nil {
+					continue
+				}
 
-	// 	// }
-	// }
+				if len(artifacts) > 0 {
+					projects[pIndex].Repos[rIndex].Artifacts = append(projects[pIndex].Repos[rIndex].Artifacts, artifacts...)
+				} else {
+					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[pIndex].Repos[rIndex].Artifacts)))
+					break
+				}
+				index++
+			}
+		}
+	}
 
 	// for _, project := range projects {
-	// 	fmt.Print(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
+	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
 	// }
 
 	return projects
@@ -83,7 +111,7 @@ func (h *Harbor) GetAll() []models.HarborProject {
 
 // project
 
-func (h *Harbor) GetProjects(page int, pageSize int) (error, []models.HarborProject) {
+func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []models.HarborProject) {
 	// request
 	path := "/projects" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
@@ -102,7 +130,9 @@ func (h *Harbor) GetProjects(page int, pageSize int) (error, []models.HarborProj
 		fmt.Println(err)
 		return err, nil
 	}
-	fmt.Println(PrettyPrint(items))
+	if print {
+		fmt.Println(PrettyPrint(items))
+	}
 
 	return nil, items
 }
@@ -131,7 +161,7 @@ func (h *Harbor) GetProject(id string) error {
 
 // repo
 
-func (h *Harbor) GetRepos(projectName string, page int, pageSize int) (error, []models.HarborRepo) {
+func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool) (error, []models.HarborRepo) {
 	// request
 	path := "/projects/" + projectName + "/repositories" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
@@ -140,6 +170,7 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int) (error, []
 		fmt.Println("Could not request repo.")
 		return err, nil
 	}
+	// fmt.Println(string(body))
 
 	// parse body
 	var items []models.HarborRepo
@@ -149,7 +180,9 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int) (error, []
 		fmt.Println(err)
 		return err, nil
 	}
-	fmt.Println(PrettyPrint(items))
+	if print {
+		fmt.Println(PrettyPrint(items))
+	}
 
 	return nil, items
 }
@@ -191,7 +224,7 @@ func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 
 // artifact
 
-func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pageSize int) (error, []models.HarborArtifact) {
+func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pageSize int, print bool) (error, []models.HarborArtifact) {
 	// request
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
@@ -200,6 +233,7 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 		fmt.Println("Could not request artifacts.")
 		return err, nil
 	}
+	// fmt.Println(string(body))
 
 	// parse body
 	var items []models.HarborArtifact
@@ -209,7 +243,9 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 		fmt.Println(err)
 		return err, nil
 	}
-	fmt.Println(PrettyPrint(items))
+	if print {
+		fmt.Println(PrettyPrint(items))
+	}
 
 	return nil, items
 }
@@ -246,6 +282,30 @@ func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, re
 }
 
 // helper
+
+func BuildUniModels(projects map[string]models.HarborProject, baseUrl string) []models.UniBase {
+	uBases := []models.UniBase{}
+	uProjects := []models.UniProject{}
+	// fmt.Println("Base:", base.Name)
+	for _, project := range projects {
+		uRepos := []models.UniRepo{}
+		// fmt.Println("	Project:", project.Name)
+		// fmt.Println("		", project.Name, "has repos", strconv.Itoa(len(project.Repos)))
+		for _, repo := range project.Repos {
+			// fmt.Println("		", repo.Name, repo.Tags)
+			tags := []string{}
+			for _, artifact := range repo.Artifacts {
+				for _, tag := range artifact.Tags {
+					tags = append(tags, tag.Name)
+				}
+			}
+			uRepos = append(uRepos, models.UniRepo{Name: repo.Name, Tags: tags})
+		}
+		uProjects = append(uProjects, models.UniProject{Name: project.Name, Repos: uRepos})
+	}
+	uBases = append(uBases, models.UniBase{Name: baseUrl, Projects: uProjects})
+	return uBases
+}
 
 func (h *Harbor) GetQuery(page int, pageSize int) string {
 	query := ""

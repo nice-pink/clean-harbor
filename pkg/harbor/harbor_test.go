@@ -3,7 +3,7 @@ package harbor
 import (
 	"testing"
 
-	"github.com/nice-pink/clean-harbor/pkg/network"
+	"github.com/nice-pink/clean-harbor/pkg/models"
 )
 
 type MockRequester struct {
@@ -15,12 +15,12 @@ var (
 	requester MockRequester
 )
 
-func (r *MockRequester) Get(url string, auth network.Auth, printBody bool) ([]byte, error) {
+func (r *MockRequester) Get(url string, auth models.Auth, printBody bool) ([]byte, error) {
 	body := []byte(requester.JsonBody)
 	return body, nil
 }
 
-func (r *MockRequester) Delete(url string, auth network.Auth) (bool, error) {
+func (r *MockRequester) Delete(url string, auth models.Auth) (bool, error) {
 	return false, nil
 }
 
@@ -34,7 +34,7 @@ func TestGetAll(t *testing.T) {
 	config := HarborConfig{
 		DryRun:    true,
 		HarborUrl: "api.url",
-		BasicAuth: network.Auth{BasicUser: "user", BasicPassword: "password"},
+		BasicAuth: models.Auth{BasicUser: "user", BasicPassword: "password"},
 	}
 
 	requester.JsonBody = "[]"

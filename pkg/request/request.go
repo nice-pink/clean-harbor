@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nice-pink/clean-harbor/pkg/network"
+	"github.com/nice-pink/clean-harbor/pkg/models"
 )
 
 type Requester struct {
@@ -15,7 +15,7 @@ type Requester struct {
 
 // request
 
-func (r *Requester) Get(url string, auth network.Auth, printBody bool) ([]byte, error) {
+func (r *Requester) Get(url string, auth models.Auth, printBody bool) ([]byte, error) {
 	// build request
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -50,7 +50,7 @@ func (r *Requester) Get(url string, auth network.Auth, printBody bool) ([]byte, 
 	return body, err
 }
 
-func (r *Requester) Delete(url string, auth network.Auth) (bool, error) {
+func (r *Requester) Delete(url string, auth models.Auth) (bool, error) {
 	// build request
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
