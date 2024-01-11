@@ -17,6 +17,11 @@ type UniRepo struct {
 	Tags []string
 }
 
+type UniTag struct {
+	Name   string
+	Digest string
+}
+
 func (u *UniBase) Print() {
 	fmt.Println(u.Name)
 	for _, project := range u.Projects {
@@ -32,5 +37,5 @@ func (u *UniProject) Print() {
 }
 
 func (u *UniRepo) Print() {
-	fmt.Println("    ", u.Name, "-", u.Tags)
+	fmt.Print("    ", u.Name, "-", u.Tags)
 }

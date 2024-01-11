@@ -19,18 +19,16 @@ type Harbor interface {
 // cleaner
 
 type Cleaner struct {
-	h Harbor
+	h            Harbor
+	TAGS_HISTORY int
 }
 
-func NewCleaner(harbor Harbor) *Cleaner {
+func NewCleaner(harbor Harbor, tagsHistory int) *Cleaner {
 	return &Cleaner{
-		h: harbor,
+		h:            harbor,
+		TAGS_HISTORY: tagsHistory,
 	}
 }
-
-const (
-	TAGS_HISTORY int = 5
-)
 
 // clean unused
 
@@ -111,7 +109,7 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 	fmt.Println(" ---> max:", strconv.Itoa(maximum))
 
 	// are there unused tags?
-	threshold := maximum + TAGS_HISTORY
+	threshold := maximum + c.TAGS_HISTORY
 	if countTags > threshold {
 		fmt.Println("    unused tags:", tags[threshold:])
 		return tags[maximum+1:]
