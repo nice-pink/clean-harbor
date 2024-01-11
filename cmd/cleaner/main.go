@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/nice-pink/clean-harbor/pkg/cleaner"
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
@@ -21,6 +23,9 @@ import (
 // }
 
 func main() {
+	start := time.Now()
+	fmt.Println("Start:", start.Format(time.RFC3339))
+
 	config := harbor.HarborConfig{
 		DryRun:    true,
 		HarborUrl: os.Getenv("HARBOR_API"),
@@ -35,4 +40,10 @@ func main() {
 	extensions := []string{".yaml"}
 	unused := cleaner.FindUnused(os.Getenv("REPO_FOLDER"), os.Getenv("REPO_BASE"), extensions)
 	npjson.DumpJson(unused, "bin/unused.json")
+
+	end := time.Now()
+	fmt.Println("End:", end.Format(time.RFC3339))
+	fmt.Println("Duration:")
+	duration := end.Sub(start)
+	fmt.Println(duration)
 }
