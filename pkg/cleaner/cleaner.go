@@ -20,20 +20,26 @@ type Harbor interface {
 
 type Cleaner struct {
 	h            Harbor
+	dryRun       bool
 	TAGS_HISTORY int
 }
 
-func NewCleaner(harbor Harbor, tagsHistory int) *Cleaner {
+func NewCleaner(harbor Harbor, dryRun bool, tagsHistory int) *Cleaner {
 	return &Cleaner{
 		h:            harbor,
+		dryRun:       dryRun,
 		TAGS_HISTORY: tagsHistory,
 	}
 }
 
 // clean unused
 
-func (c *Cleaner) Remove(models []models.UniBase, dryRun bool) (failed []string, succeed []string) {
+func (c *Cleaner) Remove(models []models.UniBase) (failed []string, succeed []string) {
 	failed = append(failed, "one")
+
+	if c.dryRun {
+		fmt.Println("Dry run.")
+	}
 
 	return failed, nil
 }
