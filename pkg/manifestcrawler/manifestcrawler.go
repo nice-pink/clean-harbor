@@ -1,12 +1,10 @@
 package manifestcrawler
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
-	models "github.com/nice-pink/clean-harbor/pkg/models"
+	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/goutil/pkg/filesystem"
 )
 
@@ -17,17 +15,17 @@ type Image struct {
 	Tag     string
 }
 
-func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]string, error) {
+func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]string, []Image, map[string]models.ManifestBase, error) {
 	pattern := ".*(" + repoUrl + ".*)"
 	replacement := "${1}"
-	values, err := GetImages(folder, pattern, replacement, extensions, true)
+	values, images, projects, err := GetImages(folder, pattern, replacement, extensions, true)
 	if err != nil {
 		fmt.Println(err)
 	}
-	return values, err
+	return values, images, projects, err
 }
 
-func GetImages(folder string, pattern string, replacement string, extensions []string, recursive bool) ([]string, error) {
+func GetImages(folder string, pattern string, replacement string, extensions []string, recursive bool) ([]string, []Image, map[string]models.ManifestBase, error) {
 	values, err := filesystem.GetRegexInAllFiles(folder, true, pattern, replacement, extensions)
 	if err != nil {
 		fmt.Println(err)
@@ -41,9 +39,8 @@ func GetImages(folder string, pattern string, replacement string, extensions []s
 		// break
 	}
 
-	GetImageProjects(images)
-
-	return values, err
+	projects := GetImageProjects(images)
+	return values, images, projects, err
 }
 
 func GetImage(image string) Image {
@@ -130,11 +127,6 @@ func GetImageProjects(images []Image) map[string]models.ManifestBase {
 	// 	}
 	// }
 
-	DumpJson(bases, "bin/repo.json")
-
-	uBases := BuildUniModels(bases)
-	DumpJson(uBases, "bin/easy.json")
-
 	return bases
 }
 
@@ -156,21 +148,4 @@ func BuildUniModels(bases map[string]models.ManifestBase) []models.UniBase {
 		uBases = append(uBases, models.UniBase{Name: base.Name, Projects: uProjects})
 	}
 	return uBases
-}
-
-func DumpJson(i interface{}, filepath string) {
-
-	j, _ := json.MarshalIndent(i, "", "  ")
-	// fmt.Println(string(j))
-
-	file, err := os.Create(filepath)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-
-	if _, err := file.Write(j); err != nil {
-		fmt.Println(err)
-	}
 }

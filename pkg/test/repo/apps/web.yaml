@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /resources/web
+spec:
+  source:
+    path: resources/web
+    targetRevision: HEAD
+    repoURL: git@github.com:nice-pink/repo.git
+  destination:
+    namespace: argo

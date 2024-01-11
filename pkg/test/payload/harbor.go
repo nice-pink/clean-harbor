@@ -68,7 +68,7 @@ func GetHarborRepos() string {
     "artifact_count": 1,
     "creation_time": "2024-01-08T20:02:37.514Z",
     "id": 1982,
-    "name": "web/metropol-fm-tr-web",
+    "name": "web/app",
     "project_id": 7,
     "pull_count": 4,
     "update_time": "2024-01-10T05:02:11.314Z"

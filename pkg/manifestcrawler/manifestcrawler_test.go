@@ -9,7 +9,7 @@ func TestGetImagesByRepo(t *testing.T) {
 
 	// got images
 	extensions := []string{}
-	images_empty_ext, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
+	images_empty_ext, _, _, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
 	got_image_count_empty_ext := len(images_empty_ext)
 	want_image_count_empty_ext := 4
 	if got_image_count_empty_ext != want_image_count_empty_ext {
@@ -18,7 +18,7 @@ func TestGetImagesByRepo(t *testing.T) {
 
 	// got images
 	extensions = []string{".yaml", ".yml"}
-	images, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
+	images, _, _, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
 	got_image_count := len(images)
 	want_image_count := 4
 	if got_image_count != want_image_count {
@@ -27,7 +27,7 @@ func TestGetImagesByRepo(t *testing.T) {
 
 	// got images
 	extensions = []string{".yml"}
-	images_yml, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
+	images_yml, _, _, _ := GetImagesByRepo("../test/repo", "quay.io", extensions)
 	got_image_count_yml := len(images_yml)
 	want_image_count_yml := 0
 	if got_image_count_yml != want_image_count_yml {

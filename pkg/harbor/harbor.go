@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
+	npjson "github.com/nice-pink/goutil/pkg/json"
 )
 
 // dependencies
@@ -85,7 +86,7 @@ func (h *Harbor) GetAll() []models.HarborProject {
 			index = 1
 			for true {
 				// fmt.Println("Get", project.Name, repo.Name)
-				repoName := strings.Split(repo.Name, "/")[1]
+				repoName := GetRepoName(repo.Name)
 				err, artifacts := h.GetArtifacts(project.Name, repoName, index, 100, false)
 				if err != nil {
 					continue
@@ -109,6 +110,10 @@ func (h *Harbor) GetAll() []models.HarborProject {
 	return projects
 }
 
+func GetRepoName(fullName string) string {
+	return strings.Split(fullName, "/")[1]
+}
+
 // project
 
 func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []models.HarborProject) {
@@ -122,6 +127,10 @@ func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []model
 	}
 	// fmt.Println(string(body))
 
+	return ParseProjects(body, print)
+}
+
+func ParseProjects(body []byte, print bool) (error, []models.HarborProject) {
 	// parse body
 	var items []models.HarborProject
 	if err := json.Unmarshal(body, &items); err != nil {
@@ -131,7 +140,7 @@ func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []model
 		return err, nil
 	}
 	if print {
-		fmt.Println(PrettyPrint(items))
+		fmt.Println(npjson.PrettyPrint(items))
 	}
 
 	return nil, items
@@ -148,13 +157,18 @@ func (h *Harbor) GetProject(id string) error {
 	}
 
 	// parse body
+	return ParseProject(body)
+}
+
+func ParseProject(body []byte) error {
+	// parse body
 	var item models.HarborProject
 	if err := json.Unmarshal(body, &item); err != nil {
 		fmt.Println(string(body))
 		fmt.Println("Cannot unmarshal json")
 		return err
 	}
-	fmt.Println(PrettyPrint(item))
+	fmt.Println(npjson.PrettyPrint(item))
 
 	return nil
 }
@@ -173,6 +187,11 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool
 	// fmt.Println(string(body))
 
 	// parse body
+	return ParseRepos(body, print)
+}
+
+func ParseRepos(body []byte, print bool) (error, []models.HarborRepo) {
+	// parse body
 	var items []models.HarborRepo
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
@@ -181,7 +200,7 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool
 		return err, nil
 	}
 	if print {
-		fmt.Println(PrettyPrint(items))
+		fmt.Println(npjson.PrettyPrint(items))
 	}
 
 	return nil, items
@@ -197,13 +216,18 @@ func (h *Harbor) GetRepo(name string, projectName string) error {
 	}
 
 	// unmarshal body
+	return ParseRepo(body)
+}
+
+func ParseRepo(body []byte) error {
+	// unmarshal body
 	var item models.HarborRepo
 	if err := json.Unmarshal(body, &item); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		return err
 	}
-	fmt.Println(PrettyPrint(item))
+	fmt.Println(npjson.PrettyPrint(item))
 
 	return nil
 }
@@ -236,6 +260,11 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 	// fmt.Println(string(body))
 
 	// parse body
+	return ParseArtifacts(body, print)
+}
+
+func ParseArtifacts(body []byte, print bool) (error, []models.HarborArtifact) {
+	// parse body
 	var items []models.HarborArtifact
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
@@ -244,7 +273,7 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 		return err, nil
 	}
 	if print {
-		fmt.Println(PrettyPrint(items))
+		fmt.Println(npjson.PrettyPrint(items))
 	}
 
 	return nil, items
@@ -260,13 +289,18 @@ func (h *Harbor) GetArtifact(artifactReference string, projectName string, repoN
 	}
 
 	// unmarshal body
+	return h.ParseArtifact(body)
+}
+
+func (h *Harbor) ParseArtifact(body []byte) error {
+	// unmarshal body
 	var item models.HarborArtifact
 	if err := json.Unmarshal(body, &item); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		return err
 	}
-	fmt.Println(PrettyPrint(item))
+	fmt.Println(npjson.PrettyPrint(item))
 
 	return nil
 }
@@ -283,7 +317,7 @@ func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, re
 
 // helper
 
-func BuildUniModels(projects map[string]models.HarborProject, baseUrl string) []models.UniBase {
+func BuildUniModels(projects []models.HarborProject, baseUrl string) []models.UniBase {
 	uBases := []models.UniBase{}
 	uProjects := []models.UniProject{}
 	// fmt.Println("Base:", base.Name)
@@ -299,7 +333,8 @@ func BuildUniModels(projects map[string]models.HarborProject, baseUrl string) []
 					tags = append(tags, tag.Name)
 				}
 			}
-			uRepos = append(uRepos, models.UniRepo{Name: repo.Name, Tags: tags})
+			repoName := GetRepoName(repo.Name)
+			uRepos = append(uRepos, models.UniRepo{Name: repoName, Tags: tags})
 		}
 		uProjects = append(uProjects, models.UniProject{Name: project.Name, Repos: uRepos})
 	}
@@ -321,9 +356,4 @@ func (h *Harbor) GetQuery(page int, pageSize int) string {
 		query += "page_size=" + strconv.Itoa(pageSize)
 	}
 	return query
-}
-
-func PrettyPrint(i interface{}) string {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
 }

@@ -4,29 +4,9 @@ import (
 	"testing"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
+	"github.com/nice-pink/clean-harbor/pkg/test/mock"
+	// "github.com/nice-pink/clean-harbor/pkg/test/payload"
 )
-
-type MockRequester struct {
-	JsonBody string
-	Err      error
-}
-
-var (
-	requester MockRequester
-)
-
-func (r *MockRequester) Get(url string, auth models.Auth, printBody bool) ([]byte, error) {
-	body := []byte(requester.JsonBody)
-	return body, nil
-}
-
-func (r *MockRequester) Delete(url string, auth models.Auth) (bool, error) {
-	return false, nil
-}
-
-type MockHarbor struct {
-	requester MockRequester
-}
 
 // all
 
@@ -37,9 +17,9 @@ func TestGetAll(t *testing.T) {
 		BasicAuth: models.Auth{BasicUser: "user", BasicPassword: "password"},
 	}
 
-	requester.JsonBody = "[]"
+	body := "[]"
 
-	r := &MockRequester{}
+	r := &mock.MockRequester{JsonBody: body}
 	h := NewHarbor(r, config)
 	projects := h.GetAll()
 	if len(projects) == 0 {
