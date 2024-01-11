@@ -16,8 +16,9 @@ import (
 // func main() {
 // 	h := &mock.MockHarbor{}
 // 	TAGS_HISTORY := 5
+//	dryRun := true
 
-// 	cleaner := cleaner.NewCleaner(h, TAGS_HISTORY)
+// 	cleaner := cleaner.NewCleaner(h, dryRun, TAGS_HISTORY)
 // 	extensions := []string{".yaml"}
 // 	cleaner.FindUnused("pkg/test/repo", "repo.url", extensions)
 // }
@@ -35,8 +36,9 @@ func main() {
 	requester := &request.Requester{}
 	h := harbor.NewHarbor(requester, config)
 	TAGS_HISTORY := 5
+	dryRun := true
 
-	cleaner := cleaner.NewCleaner(h, TAGS_HISTORY)
+	cleaner := cleaner.NewCleaner(h, dryRun, TAGS_HISTORY)
 	extensions := []string{".yaml"}
 	unused := cleaner.FindUnused(os.Getenv("REPO_FOLDER"), os.Getenv("REPO_BASE"), extensions)
 	npjson.DumpJson(unused, "bin/unused.json")
