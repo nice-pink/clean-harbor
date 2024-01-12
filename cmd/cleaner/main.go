@@ -7,9 +7,8 @@ import (
 
 	"github.com/nice-pink/clean-harbor/pkg/cleaner"
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
-	"github.com/nice-pink/clean-harbor/pkg/models"
-	"github.com/nice-pink/clean-harbor/pkg/request"
 	npjson "github.com/nice-pink/goutil/pkg/json"
+	"github.com/nice-pink/goutil/pkg/network"
 )
 
 // test
@@ -27,14 +26,20 @@ func main() {
 	start := time.Now()
 	fmt.Println("Start:", start.Format(time.RFC3339))
 
+	requestConfig := network.RequestConfig{
+		Auth: network.Auth{
+			BasicUser:     os.Getenv("HARBOR_USERNAME"),
+			BasicPassword: os.Getenv("HARBOR_PASSWORD"),
+		},
+	}
+
 	config := harbor.HarborConfig{
 		DryRun:    true,
 		HarborUrl: os.Getenv("HARBOR_API"),
-		BasicAuth: models.Auth{BasicUser: os.Getenv("HARBOR_USERNAME"), BasicPassword: os.Getenv("HARBOR_PASSWORD")},
 	}
 
-	requester := &request.Requester{}
-	h := harbor.NewHarbor(requester, config)
+	r := network.NewRequester(requestConfig)
+	h := harbor.NewHarbor(r, config)
 	TAGS_HISTORY := 5
 	dryRun := true
 

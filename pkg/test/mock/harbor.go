@@ -17,12 +17,12 @@ type MockRequester struct {
 	Err      error
 }
 
-func (r *MockRequester) Get(url string, auth models.Auth, printBody bool) ([]byte, error) {
+func (r *MockRequester) Get(url string, printBody bool) ([]byte, error) {
 	body := []byte(r.JsonBody)
 	return body, nil
 }
 
-func (r *MockRequester) Delete(url string, auth models.Auth) (bool, error) {
+func (r *MockRequester) Delete(url string) (bool, error) {
 	return false, nil
 }
 

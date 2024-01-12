@@ -13,7 +13,7 @@ func TestFindUnsued(t *testing.T) {
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 1
 
-	c := NewCleaner(h, TAGS_HISTORY)
+	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
 	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions)
 
@@ -83,7 +83,7 @@ func TestFindUnsuedNone(t *testing.T) {
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 5
 
-	c := NewCleaner(h, TAGS_HISTORY)
+	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
 	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions)
 

@@ -108,17 +108,19 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 	fmt.Println("    num existing tags:", strconv.Itoa(countTags))
 	fmt.Println("    used tags:", knownTags)
 
-	// get indeces and max index
-	fmt.Print("    tag indeces:", indeces)
-	sort.Ints(indeces)
-	maximum := indeces[len(indeces)-1]
-	fmt.Println(" ---> max:", strconv.Itoa(maximum))
+	if len(indeces) > 0 {
+		// get indeces and max index
+		fmt.Print("    tag indeces:", indeces)
+		sort.Ints(indeces)
+		maximum := indeces[len(indeces)-1]
+		fmt.Println(" ---> max:", strconv.Itoa(maximum))
 
-	// are there unused tags?
-	threshold := maximum + c.TAGS_HISTORY
-	if countTags > threshold {
-		fmt.Println("    unused tags:", tags[threshold:])
-		return tags[maximum+1:]
+		// are there unused tags?
+		threshold := maximum + c.TAGS_HISTORY
+		if countTags > threshold {
+			fmt.Println("    unused tags:", tags[threshold:])
+			return tags[maximum+1:]
+		}
 	}
 
 	return nil

@@ -8,13 +8,14 @@ import (
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	npjson "github.com/nice-pink/goutil/pkg/json"
+	"github.com/nice-pink/goutil/pkg/network"
 )
 
 // dependencies
 
 type Requester interface {
-	Get(url string, auth models.Auth, printBody bool) ([]byte, error)
-	Delete(url string, auth models.Auth) (bool, error)
+	Get(url string, printBody bool) ([]byte, error)
+	Delete(url string) (bool, error)
 }
 
 // harbor
@@ -22,7 +23,7 @@ type Requester interface {
 type HarborConfig struct {
 	DryRun    bool
 	HarborUrl string
-	BasicAuth models.Auth
+	BasicAuth network.Auth
 }
 
 type Harbor struct {
@@ -120,7 +121,7 @@ func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []model
 	// request
 	path := "/projects" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request projects.")
 		return err, nil
@@ -150,7 +151,7 @@ func (h *Harbor) GetProject(id string) error {
 	// request
 	path := "/projects/" + id
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request repo.")
 		return err
@@ -179,7 +180,7 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool
 	// request
 	path := "/projects/" + projectName + "/repositories" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request repo.")
 		return err, nil
@@ -209,7 +210,7 @@ func ParseRepos(body []byte, print bool) (error, []models.HarborRepo) {
 func (h *Harbor) GetRepo(name string, projectName string) error {
 	path := "/projects/" + projectName + "/repositories/" + name
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request repo.")
 		return err
@@ -239,7 +240,7 @@ func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 		return false, nil
 	}
 	url := h.config.HarborUrl + path
-	success, err := h.requester.Delete(url, h.config.BasicAuth)
+	success, err := h.requester.Delete(url)
 	if !success || err != nil {
 		fmt.Println("Deleting not successful!")
 	}
@@ -252,7 +253,7 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 	// request
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request artifacts.")
 		return err, nil
@@ -282,7 +283,7 @@ func ParseArtifacts(body []byte, print bool) (error, []models.HarborArtifact) {
 func (h *Harbor) GetArtifact(artifactReference string, projectName string, repoName string) error {
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts/" + artifactReference
 	url := h.config.HarborUrl + path
-	body, err := h.requester.Get(url, h.config.BasicAuth, false)
+	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request repo.")
 		return err
@@ -308,7 +309,7 @@ func (h *Harbor) ParseArtifact(body []byte) error {
 func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error) {
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts/" + artifactReference
 	url := h.config.HarborUrl + path
-	success, err := h.requester.Delete(url, h.config.BasicAuth)
+	success, err := h.requester.Delete(url)
 	if !success || err != nil {
 		fmt.Println("Deleting not successful!")
 	}

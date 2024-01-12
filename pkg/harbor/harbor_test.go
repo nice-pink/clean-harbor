@@ -3,7 +3,6 @@ package harbor
 import (
 	"testing"
 
-	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/clean-harbor/pkg/test/mock"
 	// "github.com/nice-pink/clean-harbor/pkg/test/payload"
 )
@@ -14,7 +13,6 @@ func TestGetAll(t *testing.T) {
 	config := HarborConfig{
 		DryRun:    true,
 		HarborUrl: "api.url",
-		BasicAuth: models.Auth{BasicUser: "user", BasicPassword: "password"},
 	}
 
 	body := "[]"
