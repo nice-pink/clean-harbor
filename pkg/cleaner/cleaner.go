@@ -14,7 +14,7 @@ import (
 // interfaces
 
 type Harbor interface {
-	GetAll() []models.HarborProject
+	GetAll() map[string]models.HarborProject
 }
 
 // cleaner
@@ -110,29 +110,49 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 		unused[0].Projects = projects
 	}
 
-	fmt.Println("\n\nUnsued:")
+	log.Info("\n\nUnsued:")
 	for _, base := range unused {
 		base.Print()
 	}
+	log.Info()
 
-	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects)
+	log.Info()
+	log.Info("------------------------")
+	log.Info("Unused artifacts:")
+	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
 	for _, artifact := range unusedArtifacts {
-		log.Info(artifact)
+		artifact.Print()
 	}
 
 	return unused
 }
 
-func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects []models.HarborProject) (unusedArtifacts []models.Image) {
+func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map[string]models.HarborProject, baseUrl string) (unusedArtifacts []models.Image) {
 	unusedArtifacts = []models.Image{}
 
-	// unusedProjects := unused[0].Projects
-	// // for unused
-	// for _, project := range unusedProjects {
-	// 	for _, repo := range project.Repos {
-	// 		artifacts := harborProjects[project.Name].Repos[repo.Name].Artifacts
-	// 	}
-	// }
+	unusedProjects := unused[0].Projects
+	for _, project := range unusedProjects {
+		for _, repo := range project.Repos {
+			if len(repo.Tags) == 0 {
+				continue
+			}
+
+			// find tags and get list of digests, which are used to reference artifacts in harbor.
+			tag := repo.Tags[0]
+
+			repoKey := project.Name + "/" + repo.Name
+			hArtifacts := harborProjects[project.Name].Repos[repoKey].Artifacts
+			index := IndexOfTag(hArtifacts, tag)
+			if index > 0 {
+				// if index < len(hArtifacts) {
+				for _, artifact := range hArtifacts[index:] {
+					image := models.Image{Name: repo.Name, Project: project.Name, Tag: artifact.Digest, BaseUrl: baseUrl}
+					unusedArtifacts = append(unusedArtifacts, image)
+				}
+				// }
+			}
+		}
+	}
 
 	return unusedArtifacts
 }
@@ -175,7 +195,7 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 
 // get models
 
-func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, harborProjects []models.HarborProject, manifestModels map[string]models.ManifestBase) {
+func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, harborProjects map[string]models.HarborProject, manifestModels map[string]models.ManifestBase) {
 	// generate harbor models
 	harborProjects = c.h.GetAll()
 	if len(harborProjects) == 0 {
@@ -223,6 +243,19 @@ func IndexOf(slice []string, value string) int {
 		if v == value {
 			return p
 		}
+	}
+	return -1
+}
+
+func IndexOfTag(artifacts []models.HarborArtifact, tag string) int {
+	index := 0
+	for _, artifact := range artifacts {
+		for _, aTag := range artifact.Tags {
+			if aTag.Name == tag {
+				return index
+			}
+		}
+		index++
 	}
 	return -1
 }

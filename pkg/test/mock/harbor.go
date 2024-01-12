@@ -31,13 +31,16 @@ func (r *MockRequester) Delete(url string) (bool, error) {
 type MockHarbor struct {
 }
 
-func (h *MockHarbor) GetAll() []models.HarborProject {
-	projects := []models.HarborProject{}
+func (h *MockHarbor) GetAll() map[string]models.HarborProject {
+	projects := map[string]models.HarborProject{}
 
 	// get projects
 	projectBody := []byte(payload.GetHarborProjects())
 	_, projects_page := ParseProjects(projectBody, false)
-	projects = append(projects, projects_page...)
+	for _, project := range projects_page {
+		project.Repos = map[string]models.HarborRepo{}
+		projects[project.Name] = project
+	}
 
 	// iterate over projects
 	for pIndex, project := range projects {
@@ -47,12 +50,15 @@ func (h *MockHarbor) GetAll() []models.HarborProject {
 			_, repos := ParseRepos(repoBody, false)
 
 			if len(repos) > 0 {
-				projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
+				// projects[project.Name].Repos = append(projects[project.Name].Repos, repos...)
+				for _, repo := range repos {
+					projects[project.Name].Repos[repo.Name] = repo
+				}
 			}
 		}
 
 		// get artifacts
-		for rIndex, _ := range projects[pIndex].Repos {
+		for _, repo := range projects[pIndex].Repos {
 			// repoName := GetRepoName(repo.Name)
 			// if repoName == "app" {
 			// fmt.Println("Get", project.Name, repoName)
@@ -60,10 +66,12 @@ func (h *MockHarbor) GetAll() []models.HarborProject {
 			_, artifacts := ParseArtifacts(artifactBody, false)
 
 			if len(artifacts) > 0 {
-				projects[pIndex].Repos[rIndex].Artifacts = append(projects[pIndex].Repos[rIndex].Artifacts, artifacts...)
+				repo.Artifacts = append(repo.Artifacts, artifacts...)
 			}
 			// }
+			projects[project.Name].Repos[repo.Name] = repo
 		}
+
 	}
 
 	// for _, project := range projects {

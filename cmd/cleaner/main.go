@@ -22,7 +22,7 @@ func main() {
 
 	cleaner := cleaner.NewCleaner(h, dryRun, TAGS_HISTORY)
 	extensions := []string{}
-	cleaner.FindUnused("pkg/test/repo", "repo.url", extensions, true, false)
+	cleaner.FindUnused("pkg/test/repo", "repo.url", extensions, false, false)
 }
 
 // func main() {

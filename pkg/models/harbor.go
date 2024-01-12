@@ -1,10 +1,15 @@
 package models
 
+type HarborBase struct {
+	Name     string
+	Projects map[string]HarborProject
+}
+
 type HarborProject struct {
 	Name      string
 	Id        int `json:"project_id"`
 	RepoCount int `json:"repo_count"`
-	Repos     []HarborRepo
+	Repos     map[string]HarborRepo
 }
 
 type HarborRepo struct {

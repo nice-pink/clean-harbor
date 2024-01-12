@@ -44,8 +44,8 @@ func NewHarbor(requester Requester, config HarborConfig) *Harbor {
 
 // all
 
-func (h *Harbor) GetAll() []models.HarborProject {
-	projects := []models.HarborProject{}
+func (h *Harbor) GetAll() map[string]models.HarborProject {
+	projects := map[string]models.HarborProject{}
 
 	// get projects
 	index := 1
@@ -55,16 +55,19 @@ func (h *Harbor) GetAll() []models.HarborProject {
 			return nil
 		}
 		if len(projects_page) > 0 {
-			projects = append(projects, projects_page...)
+			for _, project := range projects_page {
+				project.Repos = map[string]models.HarborRepo{}
+				projects[project.Name] = project
+			}
 		} else {
-			fmt.Println("Break", strconv.Itoa(len(projects)))
+			fmt.Println(strconv.Itoa(len(projects)), "projects.")
 			break
 		}
 		index++
 	}
 
 	// iterate over projects
-	for pIndex, project := range projects {
+	for _, project := range projects {
 		// get repos
 		index = 1
 		for true {
@@ -74,16 +77,21 @@ func (h *Harbor) GetAll() []models.HarborProject {
 			}
 
 			if len(repos) > 0 {
-				projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
+				// projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
+				// projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
+				for _, repo := range repos {
+					projects[project.Name].Repos[repo.Name] = repo
+				}
+
 			} else {
-				// fmt.Println("Got repos:", strconv.Itoa(len(projects[pIndex].Repos)))
+				fmt.Println(project.Name, "- repos:", strconv.Itoa(len(projects[project.Name].Repos)))
 				break
 			}
 			index++
 		}
 
 		// get artifacts
-		for rIndex, repo := range projects[pIndex].Repos {
+		for _, repo := range projects[project.Name].Repos {
 			index = 1
 			for true {
 				// fmt.Println("Get", project.Name, repo.Name)
@@ -94,13 +102,14 @@ func (h *Harbor) GetAll() []models.HarborProject {
 				}
 
 				if len(artifacts) > 0 {
-					projects[pIndex].Repos[rIndex].Artifacts = append(projects[pIndex].Repos[rIndex].Artifacts, artifacts...)
+					repo.Artifacts = append(repo.Artifacts, artifacts...)
 				} else {
-					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[pIndex].Repos[rIndex].Artifacts)))
+					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[project.Name].Repos[repo.Name].Artifacts)))
 					break
 				}
 				index++
 			}
+			projects[project.Name].Repos[repo.Name] = repo
 		}
 	}
 
@@ -318,7 +327,7 @@ func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, re
 
 // helper
 
-func BuildUniModels(projects []models.HarborProject, baseUrl string) []models.UniBase {
+func BuildUniModels(projects map[string]models.HarborProject, baseUrl string) []models.UniBase {
 	uBases := []models.UniBase{}
 	uProjects := []models.UniProject{}
 	// fmt.Println("Base:", base.Name)

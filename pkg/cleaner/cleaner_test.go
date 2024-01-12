@@ -15,7 +15,7 @@ func TestFindUnsued(t *testing.T) {
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
-	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions)
+	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -85,7 +85,7 @@ func TestFindUnsuedNone(t *testing.T) {
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
-	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions)
+	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -96,13 +96,9 @@ func TestFindUnsuedNone(t *testing.T) {
 
 	// no artifacts
 	got_t2 := unused[0].Projects[1].Repos[1].Tags
-	want_t2 := []string{}
+	want_t2 := 0
 
-	index := 0
-	for _, item := range got_t2 {
-		if item != want_t2[index] {
-			t.Errorf("got_t2 %q != want_t2 %q", got_t2, want_t2)
-		}
-		index++
+	if len(got_t2) != want_t2 {
+		t.Errorf("%s got_t2 %q != want_t2 %q", unused[0].Projects[1].Repos[1].Name, len(got_t2), want_t2)
 	}
 }
