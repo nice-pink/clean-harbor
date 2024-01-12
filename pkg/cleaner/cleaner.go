@@ -2,6 +2,7 @@ package cleaner
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 
@@ -110,19 +111,20 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 		unused[0].Projects = projects
 	}
 
-	log.Info("\n\nUnsued:")
-	for _, base := range unused {
-		base.Print()
-	}
-	log.Info()
+	// log.Info("\n\nUnsued:")
+	// for _, base := range unused {
+	// 	base.Print()
+	// }
+	// log.Info()
 
 	log.Info()
 	log.Info("------------------------")
 	log.Info("Unused artifacts:")
 	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
-	for _, artifact := range unusedArtifacts {
-		artifact.Print()
-	}
+	// for _, artifact := range unusedArtifacts {
+	// 	artifact.Print()
+	// }
+	printImages("bin/unused_artifacts.txt", unusedArtifacts)
 
 	return unused
 }
@@ -258,4 +260,19 @@ func IndexOfTag(artifacts []models.HarborArtifact, tag string) int {
 		index++
 	}
 	return -1
+}
+
+func printImages(filePath string, values []models.Image) error {
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// print line by line and write to file
+	for _, value := range values {
+		value.Print()
+		fmt.Fprintln(f, value.ToString())
+	}
+	return nil
 }

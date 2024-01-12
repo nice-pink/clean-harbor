@@ -10,5 +10,9 @@ type Image struct {
 }
 
 func (i *Image) Print() {
-	fmt.Println(i.BaseUrl + "/" + i.Project + "/" + i.Name + "/" + i.Tag)
+	fmt.Println(i.ToString())
+}
+
+func (i *Image) ToString() string {
+	return i.BaseUrl + "/" + i.Project + "/" + i.Name + "/" + i.Tag
 }
