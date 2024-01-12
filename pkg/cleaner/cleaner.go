@@ -8,6 +8,7 @@ import (
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
 	"github.com/nice-pink/clean-harbor/pkg/models"
+	"github.com/nice-pink/goutil/pkg/log"
 )
 
 // interfaces
@@ -46,40 +47,67 @@ func (c *Cleaner) Remove(models []models.UniBase) (failed []string, succeed []st
 
 // find unused
 
-func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string) []models.UniBase {
+func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) []models.UniBase {
 	// unused := []models.UniBase{}
 	// unused = append(unused, models.UniBase{})
 
 	// get harbor and manifest models
-	harborModels, manifestModels := c.generateModels(repoFolder, baseUrl, extensions)
+	harborModels, harborProjects, manifestModels := c.generateModels(repoFolder, baseUrl, extensions)
 	unused := harborModels
 
 	// get base project
-	harborProjects := harborModels[0]
+	harborUniProjects := harborModels[0]
+
+	fmt.Println("models")
 
 	// find unused
 	if _, ok := manifestModels[baseUrl]; ok {
 		fmt.Println("has base", baseUrl)
-		for pIndex, project := range harborProjects.Projects {
-			fmt.Print("project: '", project.Name, "'")
-			if _, ok := manifestModels[baseUrl].Projects[project.Name]; ok {
+		projects := []models.UniProject{}
+		// get projects
+		for _, hProject := range harborUniProjects.Projects {
+			fmt.Print("project: '", hProject.Name, "'")
+			if _, ok := manifestModels[baseUrl].Projects[hProject.Name]; ok {
 				fmt.Println(" IS known! ✅")
-				for rIndex, hRepo := range project.Repos {
+				repos := []models.UniRepo{}
+				// get repos
+				for _, hRepo := range hProject.Repos {
 					fmt.Print("  repo: '", hRepo.Name, "'")
-					if mRepo, ok := manifestModels[baseUrl].Projects[project.Name].Repos[hRepo.Name]; ok {
+					if mRepo, ok := manifestModels[baseUrl].Projects[hProject.Name].Repos[hRepo.Name]; ok {
 						fmt.Println(" IS known! ✅")
 						// get unused tags
-						unused[0].Projects[pIndex].Repos[rIndex].Tags = c.getUnusedTags(hRepo.Tags, mRepo.Tags)
+						// unused[0].Projects[pIndex].Repos[rIndex].Tags = c.getUnusedTags(hRepo.Tags, mRepo.Tags)
+						unusedTags := c.getUnusedTags(hRepo.Tags, mRepo.Tags)
+						if !ignoreUnsuedRepos || len(unusedTags) > 0 {
+							hRepo.Tags = unusedTags
+							repos = append(repos, hRepo)
+						} else {
+							fmt.Println(" no tags to remove")
+						}
 					} else {
 						fmt.Println(" UNUSED! 💥")
+						if !ignoreUnsuedRepos {
+							repos = append(repos, hRepo)
+						}
 					}
+				}
+				log.Info("append?", strconv.Itoa(len(repos)))
+				hProject.Repos = repos
+
+				if len(repos) > 0 || !ignoreUnsuedProjects {
+					log.Info("append", strconv.Itoa(len(repos)))
+					projects = append(projects, hProject)
 				}
 			} else {
 				// unknown project
 				fmt.Println(" UNUSED! 💥")
-				// unused[0].Projects = append(unused[0].Projects, project)
+				if !ignoreUnsuedProjects {
+					log.Info("append")
+					projects = append(projects, hProject)
+				}
 			}
 		}
+		unused[0].Projects = projects
 	}
 
 	fmt.Println("\n\nUnsued:")
@@ -87,7 +115,26 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 		base.Print()
 	}
 
+	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects)
+	for _, artifact := range unusedArtifacts {
+		log.Info(artifact)
+	}
+
 	return unused
+}
+
+func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects []models.HarborProject) (unusedArtifacts []models.Image) {
+	unusedArtifacts = []models.Image{}
+
+	// unusedProjects := unused[0].Projects
+	// // for unused
+	// for _, project := range unusedProjects {
+	// 	for _, repo := range project.Repos {
+	// 		artifacts := harborProjects[project.Name].Repos[repo.Name].Artifacts
+	// 	}
+	// }
+
+	return unusedArtifacts
 }
 
 func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []string {
@@ -128,14 +175,14 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 
 // get models
 
-func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, manifestModels map[string]models.ManifestBase) {
+func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, harborProjects []models.HarborProject, manifestModels map[string]models.ManifestBase) {
 	// generate harbor models
-	harborProjects := c.h.GetAll()
+	harborProjects = c.h.GetAll()
 	if len(harborProjects) == 0 {
 		fmt.Println("No harbor projects.")
 		return
 	}
-	harborModels := harbor.BuildUniModels(harborProjects, baseUrl)
+	harborUniModels = harbor.BuildUniModels(harborProjects, baseUrl)
 
 	// generate manifest models
 	_, _, manifestProjects, err := manifestcrawler.GetImagesByRepo(repoFolder, baseUrl, extensions)
@@ -145,7 +192,7 @@ func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions [
 	}
 
 	// return
-	return harborModels, manifestProjects
+	return harborUniModels, harborProjects, manifestProjects
 }
 
 func (c *Cleaner) generateUniModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, manifestUniModels []models.UniBase) {

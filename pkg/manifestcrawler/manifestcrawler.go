@@ -2,20 +2,31 @@ package manifestcrawler
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/goutil/pkg/filesystem"
+	"github.com/nice-pink/goutil/pkg/git"
 )
 
-type Image struct {
-	BaseUrl string
-	Project string
-	Name    string
-	Tag     string
+var (
+	ReposBaseFolder string = "bin/repo"
+)
+
+func InitManifestFolder(repoUrls string) bool {
+	sshKeyPath := os.Getenv("SSH_KEY_PATH")
+	g := git.NewGit(sshKeyPath, "user", "mail")
+
+	urls := strings.Split(repoUrls, ",")
+	for _, url := range urls {
+		g.Clone(url, ReposBaseFolder, "", true)
+	}
+
+	return true
 }
 
-func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]string, []Image, map[string]models.ManifestBase, error) {
+func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]string, []models.Image, map[string]models.ManifestBase, error) {
 	pattern := ".*(" + repoUrl + ".*)"
 	replacement := "${1}"
 	values, images, projects, err := GetImages(folder, pattern, replacement, extensions, true)
@@ -25,13 +36,13 @@ func GetImagesByRepo(folder string, repoUrl string, extensions []string) ([]stri
 	return values, images, projects, err
 }
 
-func GetImages(folder string, pattern string, replacement string, extensions []string, recursive bool) ([]string, []Image, map[string]models.ManifestBase, error) {
+func GetImages(folder string, pattern string, replacement string, extensions []string, recursive bool) ([]string, []models.Image, map[string]models.ManifestBase, error) {
 	values, err := filesystem.GetRegexInAllFiles(folder, true, pattern, replacement, extensions)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	images := []Image{}
+	images := []models.Image{}
 	for _, value := range values {
 		image := GetImage(value)
 		// fmt.Println(image.Name)
@@ -43,7 +54,7 @@ func GetImages(folder string, pattern string, replacement string, extensions []s
 	return values, images, projects, err
 }
 
-func GetImage(image string) Image {
+func GetImage(image string) models.Image {
 	// fmt.Println(image)
 	tag := ""
 	if strings.Contains(image, ":") {
@@ -60,10 +71,10 @@ func GetImage(image string) Image {
 	// fmt.Println(name)
 	baseUrl := strings.TrimSpace(filesystem.ReplaceRegex(base, "(.*)(/)([a-zA-Z0-9_-]+)", "${1}"))
 	// fmt.Println(name)
-	return Image{Tag: tag, Name: name, Project: project, BaseUrl: baseUrl}
+	return models.Image{Tag: tag, Name: name, Project: project, BaseUrl: baseUrl}
 }
 
-func GetImageProjects(images []Image) map[string]models.ManifestBase {
+func GetImageProjects(images []models.Image) map[string]models.ManifestBase {
 	bases := make(map[string]models.ManifestBase)
 
 	// iterate over images
