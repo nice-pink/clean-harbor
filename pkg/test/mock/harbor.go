@@ -36,7 +36,7 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 
 	// get projects
 	projectBody := []byte(payload.GetHarborProjects())
-	_, projects_page := ParseProjects(projectBody, false)
+	projects_page, _ := ParseProjects(projectBody, false)
 	for _, project := range projects_page {
 		project.Repos = map[string]models.HarborRepo{}
 		projects[project.Name] = project
@@ -47,7 +47,7 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 		if project.Name == "web" {
 			// get repos
 			repoBody := []byte(payload.GetHarborRepos())
-			_, repos := ParseRepos(repoBody, false)
+			repos, _ := ParseRepos(repoBody, false)
 
 			if len(repos) > 0 {
 				// projects[project.Name].Repos = append(projects[project.Name].Repos, repos...)
@@ -63,7 +63,7 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 			// if repoName == "app" {
 			// fmt.Println("Get", project.Name, repoName)
 			artifactBody := []byte(payload.GetHarborArtifacts())
-			_, artifacts := ParseArtifacts(artifactBody, false)
+			artifacts, _ := ParseArtifacts(artifactBody, false)
 
 			if len(artifacts) > 0 {
 				repo.Artifacts = append(repo.Artifacts, artifacts...)
@@ -81,56 +81,96 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 	return projects
 }
 
+func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error) {
+	// request
+	repos := map[string]models.HarborRepo{}
+
+	// iterate over projects
+	if projectName == "web" {
+		// get repos
+		repoBody := []byte(payload.GetHarborRepos())
+		pRepos, _ := ParseRepos(repoBody, false)
+		for _, repo := range pRepos {
+			repos[repo.Name] = repo
+		}
+	}
+
+	// get artifacts
+	for _, repo := range repos {
+		// repoName := GetRepoName(repo.Name)
+		// if repoName == "app" {
+		// fmt.Println("Get", project.Name, repoName)
+		artifactBody := []byte(payload.GetHarborArtifacts())
+		artifacts, _ := ParseArtifacts(artifactBody, false)
+
+		if len(artifacts) > 0 {
+			repo.Artifacts = append(repo.Artifacts, artifacts...)
+		}
+		// }
+		repos[repo.Name] = repo
+	}
+
+	// for _, project := range projects {
+	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
+	// }
+
+	return repos, nil
+}
+
+func EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
+	return projects
+}
+
 // helper - duplicated code!
 
 func GetRepoName(fullName string) string {
 	return strings.Split(fullName, "/")[1]
 }
 
-func ParseProjects(body []byte, print bool) (error, []models.HarborProject) {
+func ParseProjects(body []byte, print bool) ([]models.HarborProject, error) {
 	// parse body
 	var items []models.HarborProject
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }
 
-func ParseRepos(body []byte, print bool) (error, []models.HarborRepo) {
+func ParseRepos(body []byte, print bool) ([]models.HarborRepo, error) {
 	// parse body
 	var items []models.HarborRepo
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }
 
-func ParseArtifacts(body []byte, print bool) (error, []models.HarborArtifact) {
+func ParseArtifacts(body []byte, print bool) ([]models.HarborArtifact, error) {
 	// parse body
 	var items []models.HarborArtifact
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }

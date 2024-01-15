@@ -50,7 +50,7 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 	// get projects
 	index := 1
 	for true {
-		err, projects_page := h.GetProjects(index, 100, false)
+		projects_page, err := h.GetProjects(index, 100, false)
 		if err != nil {
 			return nil
 		}
@@ -71,7 +71,7 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 		// get repos
 		index = 1
 		for true {
-			err, repos := h.GetRepos(project.Name, index, 100, false)
+			repos, err := h.GetRepos(project.Name, index, 100, false)
 			if err != nil {
 				continue
 			}
@@ -96,7 +96,43 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 			for true {
 				// fmt.Println("Get", project.Name, repo.Name)
 				repoName := GetRepoName(repo.Name)
-				err, artifacts := h.GetArtifacts(project.Name, repoName, index, 100, false)
+				artifacts, err := h.GetArtifacts(project.Name, repoName, index, 100, false)
+				if err != nil {
+					continue
+				}
+
+				if len(artifacts) > 0 {
+					repo.Artifacts = append(repo.Artifacts, artifacts...)
+				} else {
+					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[project.Name].Repos[repo.Name].Artifacts)))
+					break
+				}
+				index++
+			}
+			projects[project.Name].Repos[repo.Name] = repo
+		}
+	}
+
+	// for _, project := range projects {
+	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
+	// }
+
+	return projects
+}
+
+// all
+
+func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
+	index := 1
+	// iterate over projects
+	for _, project := range projects {
+		// get artifacts
+		for _, repo := range projects[project.Name].Repos {
+			index = 1
+			for true {
+				// fmt.Println("Get", project.Name, repo.Name)
+				repoName := GetRepoName(repo.Name)
+				artifacts, err := h.GetArtifacts(project.Name, repoName, index, 100, false)
 				if err != nil {
 					continue
 				}
@@ -126,34 +162,34 @@ func GetRepoName(fullName string) string {
 
 // project
 
-func (h *Harbor) GetProjects(page int, pageSize int, print bool) (error, []models.HarborProject) {
+func (h *Harbor) GetProjects(page int, pageSize int, print bool) ([]models.HarborProject, error) {
 	// request
 	path := "/projects" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
 	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request projects.")
-		return err, nil
+		return nil, err
 	}
 	// fmt.Println(string(body))
 
 	return ParseProjects(body, print)
 }
 
-func ParseProjects(body []byte, print bool) (error, []models.HarborProject) {
+func ParseProjects(body []byte, print bool) ([]models.HarborProject, error) {
 	// parse body
 	var items []models.HarborProject
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }
 
 func (h *Harbor) GetProject(id string) error {
@@ -185,14 +221,43 @@ func ParseProject(body []byte) error {
 
 // repo
 
-func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool) (error, []models.HarborRepo) {
+func (h *Harbor) GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error) {
+	// request
+	repos := map[string]models.HarborRepo{}
+
+	index := 1
+	for true {
+		path := "/projects/" + projectName + "/repositories" + h.GetQuery(index, 100)
+		url := h.config.HarborUrl + path
+
+		body, err := h.requester.Get(url, false)
+		if err != nil {
+			fmt.Println("Could not request repo.")
+			return nil, err
+		}
+		// fmt.Println(string(body))
+
+		// parse body
+		newRepos, err := ParseRepos(body, print)
+		if len(newRepos) == 0 || err != nil {
+			break
+		}
+		for _, repo := range newRepos {
+			repos[repo.Name] = repo
+		}
+		index++
+	}
+	return repos, nil
+}
+
+func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool) ([]models.HarborRepo, error) {
 	// request
 	path := "/projects/" + projectName + "/repositories" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
 	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request repo.")
-		return err, nil
+		return nil, err
 	}
 	// fmt.Println(string(body))
 
@@ -200,20 +265,20 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool
 	return ParseRepos(body, print)
 }
 
-func ParseRepos(body []byte, print bool) (error, []models.HarborRepo) {
+func ParseRepos(body []byte, print bool) ([]models.HarborRepo, error) {
 	// parse body
 	var items []models.HarborRepo
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }
 
 func (h *Harbor) GetRepo(name string, projectName string) error {
@@ -258,14 +323,14 @@ func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 
 // artifact
 
-func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pageSize int, print bool) (error, []models.HarborArtifact) {
+func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pageSize int, print bool) ([]models.HarborArtifact, error) {
 	// request
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts" + h.GetQuery(page, pageSize)
 	url := h.config.HarborUrl + path
 	body, err := h.requester.Get(url, false)
 	if err != nil {
 		fmt.Println("Could not request artifacts.")
-		return err, nil
+		return nil, err
 	}
 	// fmt.Println(string(body))
 
@@ -273,20 +338,20 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 	return ParseArtifacts(body, print)
 }
 
-func ParseArtifacts(body []byte, print bool) (error, []models.HarborArtifact) {
+func ParseArtifacts(body []byte, print bool) ([]models.HarborArtifact, error) {
 	// parse body
 	var items []models.HarborArtifact
 	if err := json.Unmarshal(body, &items); err != nil {
 		fmt.Println("Cannot unmarshal json")
 		fmt.Println(string(body))
 		fmt.Println(err)
-		return err, nil
+		return nil, err
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
-	return nil, items
+	return items, nil
 }
 
 func (h *Harbor) GetArtifact(artifactReference string, projectName string, repoName string) error {

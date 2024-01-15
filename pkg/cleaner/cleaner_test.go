@@ -15,7 +15,8 @@ func TestFindUnsued(t *testing.T) {
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
-	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, false, false)
+	filterProjects := []string{}
+	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -85,7 +86,8 @@ func TestFindUnsuedNone(t *testing.T) {
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
-	unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, false, false)
+	filterProjects := []string{}
+	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -100,5 +102,38 @@ func TestFindUnsuedNone(t *testing.T) {
 
 	if len(got_t2) != want_t2 {
 		t.Errorf("%s got_t2 %q != want_t2 %q", unused[0].Projects[1].Repos[1].Name, len(got_t2), want_t2)
+	}
+}
+
+func TestFindUnsuedFilterProjects(t *testing.T) {
+	h := &mock.MockHarbor{}
+	TAGS_HISTORY := 5
+
+	c := NewCleaner(h, true, TAGS_HISTORY)
+	extensions := []string{}
+	filterProjects := []string{"dummy"}
+	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
+
+	got_base_name := unused[0].Name
+	want_base_name := "repo.url"
+
+	if got_base_name != want_base_name {
+		t.Errorf("got_base_name %q != want_base_name %q", got_base_name, want_base_name)
+	}
+
+	// project cound
+	got_len := len(unused[0].Projects)
+	want_len := 1
+
+	if got_len != want_len {
+		t.Errorf("Filter project. Items in slice. got_len %q != want_len %q", got_len, want_len)
+	}
+
+	// no artifacts
+	got_t2 := len(unused[0].Projects[0].Repos)
+	want_t2 := 0
+
+	if got_t2 != want_t2 {
+		t.Errorf("Filter project. repos. got_t2 %q != want_t2 %q", got_t2, want_t2)
 	}
 }

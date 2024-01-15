@@ -16,6 +16,8 @@ import (
 
 type Harbor interface {
 	GetAll() map[string]models.HarborProject
+	GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error)
+	EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject
 }
 
 // cleaner
@@ -48,12 +50,12 @@ func (c *Cleaner) Remove(models []models.UniBase) (failed []string, succeed []st
 
 // find unused
 
-func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) []models.UniBase {
+func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, filterProjects []string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) ([]models.Image, []models.UniBase) {
 	// unused := []models.UniBase{}
 	// unused = append(unused, models.UniBase{})
 
 	// get harbor and manifest models
-	harborModels, harborProjects, manifestModels := c.generateModels(repoFolder, baseUrl, extensions)
+	harborModels, harborProjects, manifestModels := c.generateModels(repoFolder, baseUrl, extensions, filterProjects)
 	unused := harborModels
 
 	// get base project
@@ -92,18 +94,18 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 						}
 					}
 				}
-				log.Info("append?", strconv.Itoa(len(repos)))
+				// log.Info("append?", strconv.Itoa(len(repos)))
 				hProject.Repos = repos
 
 				if len(repos) > 0 || !ignoreUnsuedProjects {
-					log.Info("append", strconv.Itoa(len(repos)))
+					// log.Info("append", strconv.Itoa(len(repos)))
 					projects = append(projects, hProject)
 				}
 			} else {
 				// unknown project
 				fmt.Println(" UNUSED! 💥")
 				if !ignoreUnsuedProjects {
-					log.Info("append")
+					// log.Info("append")
 					projects = append(projects, hProject)
 				}
 			}
@@ -121,12 +123,12 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 	log.Info("------------------------")
 	log.Info("Unused artifacts:")
 	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
-	// for _, artifact := range unusedArtifacts {
-	// 	artifact.Print()
-	// }
+	for _, artifact := range unusedArtifacts {
+		artifact.Print()
+	}
 	printImages("bin/unused_artifacts.txt", unusedArtifacts)
 
-	return unused
+	return unusedArtifacts, unused
 }
 
 func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map[string]models.HarborProject, baseUrl string) (unusedArtifacts []models.Image) {
@@ -136,6 +138,7 @@ func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map
 	for _, project := range unusedProjects {
 		for _, repo := range project.Repos {
 			if len(repo.Tags) == 0 {
+				// log.Warn("No tags for repo:", repo.Name)
 				continue
 			}
 
@@ -197,9 +200,21 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 
 // get models
 
-func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string) (harborUniModels []models.UniBase, harborProjects map[string]models.HarborProject, manifestModels map[string]models.ManifestBase) {
+func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string, filterProjects []string) (harborUniModels []models.UniBase, harborProjects map[string]models.HarborProject, manifestModels map[string]models.ManifestBase) {
 	// generate harbor models
-	harborProjects = c.h.GetAll()
+	if len(filterProjects) == 0 {
+		harborProjects = c.h.GetAll()
+	} else {
+		harborProjects = map[string]models.HarborProject{}
+		for _, name := range filterProjects {
+			log.Info("--- Get repos for project:")
+			repos, _ := c.h.GetAllRepos(name, false)
+			harborProjects[name] = models.HarborProject{Name: name, Repos: repos}
+			log.Info("Got", strconv.Itoa(len(repos)), "repos.")
+		}
+		harborProjects = c.h.EnrichReposWithArtificats(harborProjects)
+	}
+
 	if len(harborProjects) == 0 {
 		fmt.Println("No harbor projects.")
 		return
