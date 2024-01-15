@@ -29,6 +29,8 @@ func (r *MockRequester) Delete(url string) (bool, error) {
 // mock harbor
 
 type MockHarbor struct {
+	DeleteSuccessful bool
+	DeleteError      error
 }
 
 func (h *MockHarbor) GetAll() map[string]models.HarborProject {
@@ -117,8 +119,15 @@ func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]mod
 	return repos, nil
 }
 
-func EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
+func (h *MockHarbor) EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
 	return projects
+}
+
+func (h *MockHarbor) DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error) {
+	if h.DeleteSuccessful {
+		return true, h.DeleteError
+	}
+	return true, h.DeleteError
 }
 
 // helper - duplicated code!

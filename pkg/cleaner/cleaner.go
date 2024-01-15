@@ -18,21 +18,22 @@ type Harbor interface {
 	GetAll() map[string]models.HarborProject
 	GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error)
 	EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject
+	DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error)
 }
 
 // cleaner
 
 type Cleaner struct {
-	h            Harbor
-	dryRun       bool
-	TAGS_HISTORY int
+	h           Harbor
+	dryRun      bool
+	tagsHistory int
 }
 
 func NewCleaner(harbor Harbor, dryRun bool, tagsHistory int) *Cleaner {
 	return &Cleaner{
-		h:            harbor,
-		dryRun:       dryRun,
-		TAGS_HISTORY: tagsHistory,
+		h:           harbor,
+		dryRun:      dryRun,
+		tagsHistory: tagsHistory,
 	}
 }
 
@@ -110,21 +111,39 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 		}
 		unused[0].Projects = projects
 	}
-
-	// log.Info("\n\nUnsued:")
-	// for _, base := range unused {
-	// 	base.Print()
-	// }
-	// log.Info()
-
-	log.Info()
-	log.Info("------------------------")
-	log.Info("Unused artifacts:")
 	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
-	printImages("bin/unused_artifacts.txt", unusedArtifacts)
 
 	return unusedArtifacts, unused
 }
+
+// delete
+
+func (c *Cleaner) Delete(images []models.Image) map[string]error {
+	errors := map[string]error{}
+
+	if !c.dryRun {
+		log.Info("This is not a dry run!!!!")
+	} else {
+		log.Info("This is a DRY RUN!")
+	}
+
+	for _, image := range images {
+		log.Info("Delete:", image.Name, image.Tag)
+
+		if !c.dryRun {
+			_, err := c.h.DeleteArtifact(image.Tag, image.Project, image.Name)
+			if err != nil {
+
+				key := image.Project + "/" + image.Name + "/" + image.Tag
+				errors[key] = err
+			}
+		}
+	}
+
+	return errors
+}
+
+//
 
 func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map[string]models.HarborProject, baseUrl string) (unusedArtifacts []models.Image) {
 	unusedArtifacts = []models.Image{}
@@ -177,16 +196,16 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 
 	if len(indeces) > 0 {
 		// get indeces and max index
-		fmt.Print("    tag indeces:", indeces)
+		// fmt.Print("    tag indeces:", indeces) // value might be higher than expected, because one artifact can have multiple tags!
 		sort.Ints(indeces)
 		maximum := indeces[len(indeces)-1]
-		fmt.Println(" ---> max:", strconv.Itoa(maximum))
+		// fmt.Println(" ---> max:", strconv.Itoa(maximum))
 
 		// are there unused tags?
-		threshold := maximum + c.TAGS_HISTORY
-		if countTags >= threshold {
-			fmt.Println("    unused tags:", tags[threshold:])
-			return tags[maximum+c.TAGS_HISTORY:]
+		threshold := maximum + c.tagsHistory + 1
+		if countTags > threshold {
+			fmt.Println("    UNUSED TAGS:", strconv.Itoa(len(tags[threshold:])), "starting from:", tags[threshold]) // tags[threshold:]
+			return tags[threshold:]
 		}
 	}
 
@@ -272,7 +291,7 @@ func IndexOfTag(artifacts []models.HarborArtifact, tag string) int {
 	return -1
 }
 
-func printImages(filePath string, values []models.Image) error {
+func PrintImages(filePath string, values []models.Image, toStdout bool) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -281,7 +300,10 @@ func printImages(filePath string, values []models.Image) error {
 
 	// print line by line and write to file
 	for _, value := range values {
-		value.Print()
+		if toStdout {
+			value.Print()
+		}
+
 		fmt.Fprintln(f, value.ToString())
 	}
 	return nil

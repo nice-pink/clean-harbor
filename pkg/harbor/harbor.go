@@ -8,6 +8,7 @@ import (
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	npjson "github.com/nice-pink/goutil/pkg/json"
+	"github.com/nice-pink/goutil/pkg/log"
 	"github.com/nice-pink/goutil/pkg/network"
 )
 
@@ -104,7 +105,7 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 				if len(artifacts) > 0 {
 					repo.Artifacts = append(repo.Artifacts, artifacts...)
 				} else {
-					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[project.Name].Repos[repo.Name].Artifacts)))
+					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(repo.Artifacts)))
 					break
 				}
 				index++
@@ -140,7 +141,7 @@ func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.HarborProj
 				if len(artifacts) > 0 {
 					repo.Artifacts = append(repo.Artifacts, artifacts...)
 				} else {
-					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(projects[project.Name].Repos[repo.Name].Artifacts)))
+					fmt.Println(repo.Name, " has artifacts: ", strconv.Itoa(len(repo.Artifacts)))
 					break
 				}
 				index++
@@ -310,13 +311,13 @@ func ParseRepo(body []byte) error {
 func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 	path := "/projects/" + projectName + "/repositories/" + repoName
 	if h.config.DryRun {
-		fmt.Println("Delete:", path)
+		log.Info("Dry run: Delete:", path)
 		return false, nil
 	}
 	url := h.config.HarborUrl + path
 	success, err := h.requester.Delete(url)
 	if !success || err != nil {
-		fmt.Println("Deleting not successful!")
+		log.Error("Deleting not successful!")
 	}
 	return success, err
 }
@@ -383,9 +384,15 @@ func (h *Harbor) ParseArtifact(body []byte) error {
 func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error) {
 	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts/" + artifactReference
 	url := h.config.HarborUrl + path
+
+	if h.config.DryRun {
+		log.Info("Dry run: Delete:", url)
+		return false, nil
+	}
+
 	success, err := h.requester.Delete(url)
 	if !success || err != nil {
-		fmt.Println("Deleting not successful!")
+		log.Error("Deleting not successful!")
 	}
 	return success, err
 }
