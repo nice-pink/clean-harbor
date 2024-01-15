@@ -11,12 +11,13 @@ import (
 
 func TestFindUnsued(t *testing.T) {
 	h := &mock.MockHarbor{}
-	TAGS_HISTORY := 1
+	TAGS_HISTORY := 0
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
 	filterProjects := []string{}
-	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
+	filterRepos := ""
+	_, _, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, filterRepos, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -62,7 +63,7 @@ func TestFindUnsued(t *testing.T) {
 
 	// 2 repo
 	got_r2_name := unused[0].Projects[1].Repos[0].Name
-	want_r2_name := "app-feature-1315"
+	want_r2_name := "app"
 
 	if got_r2_name != want_r2_name {
 		t.Errorf("got_r2_name %q != want_r2_name %q", got_r2_name, want_r2_name)
@@ -72,22 +73,24 @@ func TestFindUnsued(t *testing.T) {
 	want_t2 := []string{"0_0_zzzzzz"}
 
 	index = 0
-	for _, item := range got_t2 {
-		if item != want_t2[index] {
-			t.Errorf("got_t2 %q != want_t2 %q", got_t2, want_t2)
+	for _, item := range want_t2 {
+		if item != got_t2[index] {
+			t.Errorf("%d got_t2 %q != want_t2 %q", index, got_t2, want_t2)
 		}
 		index++
 	}
 }
 
 func TestFindUnsuedNone(t *testing.T) {
+	// app is not contained in used!
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 5
 
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{".yaml"}
 	filterProjects := []string{}
-	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
+	filterRepos := ""
+	_, _, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, filterRepos, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"
@@ -96,12 +99,14 @@ func TestFindUnsuedNone(t *testing.T) {
 		t.Errorf("got_base_name %q != want_base_name %q", got_base_name, want_base_name)
 	}
 
-	// no artifacts
-	got_t2 := unused[0].Projects[1].Repos[1].Tags
-	want_t2 := 0
-
-	if len(got_t2) != want_t2 {
-		t.Errorf("%s got_t2 %q != want_t2 %q", unused[0].Projects[1].Repos[1].Name, len(got_t2), want_t2)
+	for _, project := range unused[0].Projects {
+		if project.Name == "web" {
+			for _, repo := range project.Repos {
+				if repo.Name == "app" {
+					t.Errorf("All images are used or within the tags_history, but found image unused. %s", repo.Name)
+				}
+			}
+		}
 	}
 }
 
@@ -112,7 +117,8 @@ func TestFindUnsuedFilterProjects(t *testing.T) {
 	c := NewCleaner(h, true, TAGS_HISTORY)
 	extensions := []string{}
 	filterProjects := []string{"dummy"}
-	_, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
+	filterRepos := ""
+	_, _, unused := c.FindUnused("../../pkg/test/repo", "repo.url", extensions, filterProjects, filterRepos, false, false)
 
 	got_base_name := unused[0].Name
 	want_base_name := "repo.url"

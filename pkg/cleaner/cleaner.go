@@ -116,6 +116,8 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 		}
 		unused[0].Projects = projects
 	}
+
+	// get unsed artifacts and repos
 	unusedArtifacts, unsuedRepos := c.getUnusedItems(unused, harborProjects, baseUrl)
 
 	return unusedArtifacts, unsuedRepos, unused

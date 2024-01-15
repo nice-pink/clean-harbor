@@ -12,7 +12,7 @@ import (
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
 	"github.com/nice-pink/clean-harbor/pkg/models"
-	"github.com/nice-pink/goutil/pkg/filesystem"
+	filesystem "github.com/nice-pink/gm_filesystem"
 	npjson "github.com/nice-pink/goutil/pkg/json"
 	"github.com/nice-pink/goutil/pkg/log"
 	"github.com/nice-pink/goutil/pkg/network"
@@ -27,7 +27,8 @@ import (
 // 	cleaner := cleaner.NewCleaner(h, dryRun, TAGS_HISTORY)
 // 	extensions := []string{}
 // 	filterProjects := []string{"web"}
-// 	cleaner.FindUnused("pkg/test/repo", "repo.url", extensions, filterProjects, false, false)
+// 	filterRepos := "feature-"
+// 	cleaner.FindUnused("pkg/test/repo", "repo.url", extensions, filterProjects, filterRepos, false, false)
 // }
 
 func main() {
