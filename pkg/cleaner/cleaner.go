@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
@@ -19,6 +20,7 @@ type Harbor interface {
 	GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error)
 	EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject
 	DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error)
+	DeleteRepo(projectName string, repoName string) (bool, error)
 }
 
 // cleaner
@@ -51,10 +53,7 @@ func (c *Cleaner) Remove(models []models.UniBase) (failed []string, succeed []st
 
 // find unused
 
-func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, filterProjects []string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) ([]models.Image, []models.UniBase) {
-	// unused := []models.UniBase{}
-	// unused = append(unused, models.UniBase{})
-
+func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, filterProjects []string, filterRepos string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) ([]models.Image, []models.Image, []models.UniBase) {
 	// get harbor and manifest models
 	harborModels, harborProjects, manifestModels := c.generateModels(repoFolder, baseUrl, extensions, filterProjects)
 	unused := harborModels
@@ -74,13 +73,16 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 				repos := []models.UniRepo{}
 				// get repos
 				for _, hRepo := range hProject.Repos {
+					if filterRepos != "" && !strings.Contains(hRepo.Name, filterRepos) {
+						continue
+					}
 					fmt.Print("  repo: '", hRepo.Name, "'")
 					if mRepo, ok := manifestModels[baseUrl].Projects[hProject.Name].Repos[hRepo.Name]; ok {
 						fmt.Println(" IS known! ✅")
 						// get unused tags
 						// unused[0].Projects[pIndex].Repos[rIndex].Tags = c.getUnusedTags(hRepo.Tags, mRepo.Tags)
 						unusedTags := c.getUnusedTags(hRepo.Tags, mRepo.Tags)
-						if !ignoreUnsuedRepos || len(unusedTags) > 0 {
+						if len(unusedTags) > 0 {
 							hRepo.Tags = unusedTags
 							repos = append(repos, hRepo)
 						} else {
@@ -89,6 +91,8 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 					} else {
 						fmt.Println(" UNUSED! 💥")
 						if !ignoreUnsuedRepos {
+							// log.Info("Include unused repo.")
+							hRepo.Unused = true
 							repos = append(repos, hRepo)
 						}
 					}
@@ -96,7 +100,7 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 				// log.Info("append?", strconv.Itoa(len(repos)))
 				hProject.Repos = repos
 
-				if len(repos) > 0 || !ignoreUnsuedProjects {
+				if len(repos) > 0 {
 					// log.Info("append", strconv.Itoa(len(repos)))
 					projects = append(projects, hProject)
 				}
@@ -104,16 +108,17 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 				// unknown project
 				fmt.Println(" UNUSED! 💥")
 				if !ignoreUnsuedProjects {
-					// log.Info("append")
+					// log.Info("Include unused project.")
+					hProject.Unused = true
 					projects = append(projects, hProject)
 				}
 			}
 		}
 		unused[0].Projects = projects
 	}
-	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
+	unusedArtifacts, unsuedRepos := c.getUnusedItems(unused, harborProjects, baseUrl)
 
-	return unusedArtifacts, unused
+	return unusedArtifacts, unsuedRepos, unused
 }
 
 // delete
@@ -128,15 +133,23 @@ func (c *Cleaner) Delete(images []models.Image) map[string]error {
 	}
 
 	for _, image := range images {
-		log.Info("Delete:", image.Name, image.Tag)
-
-		if !c.dryRun {
-			_, err := c.h.DeleteArtifact(image.Tag, image.Project, image.Name)
-			if err != nil {
-
-				key := image.Project + "/" + image.Name + "/" + image.Tag
-				errors[key] = err
+		var err error
+		if image.Tag == "" {
+			log.Info("Delete Repo:", image.Name, image.Tag)
+			if !c.dryRun {
+				_, err = c.h.DeleteRepo(image.Project, image.Name)
 			}
+		} else {
+			log.Info("Delete Artifact:", image.Name, image.Tag)
+			if !c.dryRun {
+				_, err = c.h.DeleteArtifact(image.Tag, image.Project, image.Name)
+			}
+		}
+
+		if err != nil {
+
+			key := image.Project + "/" + image.Name + "/" + image.Tag
+			errors[key] = err
 		}
 	}
 
@@ -145,12 +158,18 @@ func (c *Cleaner) Delete(images []models.Image) map[string]error {
 
 //
 
-func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map[string]models.HarborProject, baseUrl string) (unusedArtifacts []models.Image) {
+func (c *Cleaner) getUnusedItems(unused []models.UniBase, harborProjects map[string]models.HarborProject, baseUrl string) (unusedArtifacts []models.Image, unusedRepos []models.Image) {
 	unusedArtifacts = []models.Image{}
+	unusedRepos = []models.Image{}
 
 	unusedProjects := unused[0].Projects
 	for _, project := range unusedProjects {
 		for _, repo := range project.Repos {
+			if repo.Unused || project.Unused {
+				unusedRepos = append(unusedRepos, models.Image{Name: repo.Name, Project: project.Name, BaseUrl: baseUrl})
+				continue
+			}
+
 			if len(repo.Tags) == 0 {
 				// log.Warn("No tags for repo:", repo.Name)
 				continue
@@ -161,19 +180,20 @@ func (c *Cleaner) getUnusedArtifacts(unused []models.UniBase, harborProjects map
 
 			repoKey := project.Name + "/" + repo.Name
 			hArtifacts := harborProjects[project.Name].Repos[repoKey].Artifacts
+
 			index := IndexOfTag(hArtifacts, tag)
-			if index > 0 {
-				// if index < len(hArtifacts) {
-				for _, artifact := range hArtifacts[index:] {
-					image := models.Image{Name: repo.Name, Project: project.Name, Tag: artifact.Digest, BaseUrl: baseUrl}
-					unusedArtifacts = append(unusedArtifacts, image)
-				}
-				// }
+			if index < 0 {
+				continue
+			}
+
+			for _, artifact := range hArtifacts[index:] {
+				image := models.Image{Name: repo.Name, Project: project.Name, Tag: artifact.Digest, BaseUrl: baseUrl}
+				unusedArtifacts = append(unusedArtifacts, image)
 			}
 		}
 	}
 
-	return unusedArtifacts
+	return unusedArtifacts, unusedRepos
 }
 
 func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []string {

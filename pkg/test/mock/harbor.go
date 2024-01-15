@@ -130,6 +130,13 @@ func (h *MockHarbor) DeleteArtifact(artifactReference string, projectName string
 	return true, h.DeleteError
 }
 
+func (h *MockHarbor) DeleteRepo(projectName string, repoName string) (bool, error) {
+	if h.DeleteSuccessful {
+		return true, h.DeleteError
+	}
+	return true, h.DeleteError
+}
+
 // helper - duplicated code!
 
 func GetRepoName(fullName string) string {

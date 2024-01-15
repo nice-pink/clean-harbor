@@ -34,11 +34,12 @@ func main() {
 	action := flag.String("action", "find", "find, delete, findAndDelete")
 	baseFolder := flag.String("baseFolder", "bin", "Base folder.")
 	reposDestFolder := flag.String("reposDestFolder", "repo", "Repo base folder.")
-	repoUrls := flag.String("repoUrls", "", "Comma separated list of repoUrls. E.g. git@github.com:nice-pink/goutil.git,git@github.com:nice-pink/clean-harbor.git")
+	repoUrls := flag.String("repoUrls", "", "Comma separated list of repoUrls. E.g. 'git@github.com:nice-pink/goutil.git,git@github.com:nice-pink/clean-harbor.git'")
 	registryBase := flag.String("registryBase", "", "Registry base which is used to identify images. E.g. 'quay.io'")
-	filterProjects := flag.String("filterProjects", "", "Comma separated list of projects to search for. All others are ignored. E.g. websites,services")
-	ignoreUnusedProjects := flag.Bool("ignoreUnusedProjects", false, "Unused projects are ignored. Could be, because they are handled differently e.g. pull through cache.")
-	ignoreUnusedRepos := flag.Bool("ignoreUnusedRepos", false, "Unused repo are ignored. Could be, because they are currently unused.")
+	filterProjects := flag.String("filterProjects", "", "Comma separated list of projects to search for. All others are ignored. E.g. 'websites,services'")
+	filterRepos := flag.String("filterRepos", "", "Search string contained in repo name. All others are ignored. E.g. '-feature-'")
+	includeUnknownProjects := flag.Bool("includeUnknownProjects", false, "Unknown projects are included (and deleted). Be cautious: Could be unknown, because they are handled differently e.g. pull through cache.")
+	includeUnknownRepos := flag.Bool("includeUnknownRepos", false, "Unknown repo are included (and deleted). Could be, because they are currently unused.")
 	tagsHistory := flag.Int("tagsHistory", 5, "How many tags more than the oldest in use should be kept? Default=5")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
@@ -93,9 +94,10 @@ func main() {
 	c := cleaner.NewCleaner(h, dryRun, *tagsHistory)
 
 	unusedArtifacts := []models.Image{}
+	unusedRepos := []models.Image{}
 
 	if strings.ToUpper(*action) == "FIND" || strings.ToUpper(*action) == strings.ToUpper("findAndDelete") {
-		_, unusedArtifacts = find(c, *baseFolder, repoDestFolder, *registryBase, *ignoreUnusedProjects, *ignoreUnusedRepos, *filterProjects, *tagsHistory)
+		unusedArtifacts, unusedRepos = find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos, *tagsHistory)
 	}
 	//  else {
 	// 	unusedFilepath = *unusedArtifactsFilepath
@@ -109,9 +111,15 @@ func main() {
 		// }
 		log.Info()
 		log.Info("-------------------")
+		log.Info("Delete artifacts:")
 		start := time.Now()
 		fmt.Println("Start delete:", start.Format(time.RFC3339))
 		c.Delete(unusedArtifacts)
+
+		log.Info()
+		log.Info("-------------------")
+		log.Info("Delete repos:")
+		c.Delete(unusedRepos)
 		// log duration
 		end := time.Now()
 		fmt.Println("End delete:", end.Format(time.RFC3339))
@@ -121,7 +129,7 @@ func main() {
 	}
 }
 
-func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, tagsHistory int) (string, []models.Image) {
+func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string, tagsHistory int) (artifacts []models.Image, repos []models.Image) {
 	start := time.Now()
 	fmt.Println("Start find:", start.Format(time.RFC3339))
 
@@ -135,7 +143,7 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	// get unused projects
 	extensions := []string{".yaml"}
 
-	artifacts, unused := c.FindUnused(reposDestFolder, registryBase, extensions, filterProjects, ignoreUnusedProjects, ignoreUnusedRepos)
+	artifacts, repos, unused := c.FindUnused(reposDestFolder, registryBase, extensions, filterProjects, filterRepos, ignoreUnusedProjects, ignoreUnusedRepos)
 
 	// print unsued images
 	unusedFilepath := filepath.Join(baseFolder, "unused.json")
@@ -148,6 +156,12 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	unusedArtifactsFilepath := filepath.Join(baseFolder, "unused_artifacts.txt")
 	cleaner.PrintImages(unusedArtifactsFilepath, artifacts, false)
 
+	log.Info("------------------------")
+	log.Info("Unused repos:")
+	log.Info(len(repos))
+	unusedReposFilepath := filepath.Join(baseFolder, "unused_repos.txt")
+	cleaner.PrintImages(unusedReposFilepath, repos, false)
+
 	// log duration
 	end := time.Now()
 	fmt.Println("End find:", end.Format(time.RFC3339))
@@ -155,5 +169,5 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	duration := end.Sub(start)
 	fmt.Println(duration)
 
-	return unusedArtifactsFilepath, artifacts
+	return artifacts, repos
 }

@@ -8,13 +8,15 @@ type UniBase struct {
 }
 
 type UniProject struct {
-	Name  string
-	Repos []UniRepo
+	Name   string
+	Repos  []UniRepo
+	Unused bool
 }
 
 type UniRepo struct {
-	Name string
-	Tags []string
+	Name   string
+	Tags   []string
+	Unused bool
 }
 
 type UniTag struct {
