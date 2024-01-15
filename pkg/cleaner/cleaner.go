@@ -61,8 +61,6 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 	// get base project
 	harborUniProjects := harborModels[0]
 
-	fmt.Println("models")
-
 	// find unused
 	if _, ok := manifestModels[baseUrl]; ok {
 		fmt.Println("has base", baseUrl)
@@ -123,9 +121,6 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 	log.Info("------------------------")
 	log.Info("Unused artifacts:")
 	unusedArtifacts := c.getUnusedArtifacts(unused, harborProjects, baseUrl)
-	for _, artifact := range unusedArtifacts {
-		artifact.Print()
-	}
 	printImages("bin/unused_artifacts.txt", unusedArtifacts)
 
 	return unusedArtifacts, unused
@@ -189,9 +184,9 @@ func (c *Cleaner) getUnusedTags(harborTags []string, manifestTags []string) []st
 
 		// are there unused tags?
 		threshold := maximum + c.TAGS_HISTORY
-		if countTags > threshold {
+		if countTags >= threshold {
 			fmt.Println("    unused tags:", tags[threshold:])
-			return tags[maximum+1:]
+			return tags[maximum+c.TAGS_HISTORY:]
 		}
 	}
 

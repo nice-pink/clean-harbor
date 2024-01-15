@@ -34,6 +34,7 @@ func main() {
 	filterProjects := flag.String("filterProjects", "", "Comma separated list of projects to search for. All others are ignored. E.g. websites,services")
 	ignoreUnusedProjects := flag.Bool("ignoreUnusedProjects", false, "Unused projects are ignored. Could be, because they are handled differently e.g. pull through cache.")
 	ignoreUnusedRepos := flag.Bool("ignoreUnusedRepos", false, "Unused repo are ignored. Could be, because they are currently unused.")
+	tagsHistory := flag.Int("tagsHistory", 5, "How many tags more than the oldest in use should be kept? Default=5")
 	flag.Parse()
 
 	// if *repoUrls == "" {
@@ -48,10 +49,10 @@ func main() {
 		*reposDestFolder = os.Getenv("REPO_FOLDER")
 	}
 
-	run(*reposDestFolder, *repoUrls, *registryBase, *ignoreUnusedProjects, *ignoreUnusedRepos, *filterProjects)
+	run(*reposDestFolder, *repoUrls, *registryBase, *ignoreUnusedProjects, *ignoreUnusedRepos, *filterProjects, *tagsHistory)
 }
 
-func run(reposDestFolder string, repoUrls string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string) {
+func run(reposDestFolder string, repoUrls string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, tagsHistory int) {
 	start := time.Now()
 	fmt.Println("Start:", start.Format(time.RFC3339))
 
@@ -79,9 +80,8 @@ func run(reposDestFolder string, repoUrls string, registryBase string, ignoreUnu
 	h := harbor.NewHarbor(r, config)
 
 	// setup cleaner
-	TAGS_HISTORY := 5
 	dryRun := true
-	cleaner := cleaner.NewCleaner(h, dryRun, TAGS_HISTORY)
+	cleaner := cleaner.NewCleaner(h, dryRun, tagsHistory)
 
 	// get projects to filter by
 	filterProjects := []string{}
