@@ -79,26 +79,26 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 					fmt.Print("  repo: '", hRepo.Name, "'")
 
 					mRepo, repoIsKnown := manifestModels[baseUrl].Projects[hProject.Name].Repos[hRepo.Name]
-					// if repoIsKnown {
-					fmt.Println(" IS known! ✅")
+					if repoIsKnown {
+						fmt.Println(" IS known! ✅")
 
-					// get unused tags
-					// unused[0].Projects[pIndex].Repos[rIndex].Tags = c.getUnusedTags(hRepo.Tags, mRepo.Tags)
-					unusedTags := c.getUnusedTags(hRepo.Tags, mRepo.Tags)
-					if len(unusedTags) > 0 {
-						hRepo.Tags = unusedTags
-						repos = append(repos, hRepo)
+						// get unused tags
+						// unused[0].Projects[pIndex].Repos[rIndex].Tags = c.getUnusedTags(hRepo.Tags, mRepo.Tags)
+						unusedTags := c.getUnusedTags(hRepo.Tags, mRepo.Tags)
+						if len(unusedTags) > 0 {
+							hRepo.Tags = unusedTags
+							repos = append(repos, hRepo)
+						} else {
+							fmt.Println(" no tags to remove")
+						}
 					} else {
-						fmt.Println(" no tags to remove")
-					}
-					// } else {
 
-					// delete repo (after artifacts were removed)
-					if !repoIsKnown {
+						// delete repo (after artifacts were removed)
 						fmt.Println(" UNUSED! 💥")
 						if !ignoreUnsuedRepos {
 							// log.Info("Include unused repo.")
 							hRepo.Unused = true
+							hRepo.Tags = mRepo.Tags
 							repos = append(repos, hRepo)
 						}
 					}
