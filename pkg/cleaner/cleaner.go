@@ -98,7 +98,6 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 						if !ignoreUnsuedRepos {
 							// log.Info("Include unused repo.")
 							hRepo.Unused = true
-							hRepo.Tags = mRepo.Tags
 							repos = append(repos, hRepo)
 						}
 					}
@@ -178,11 +177,11 @@ func (c *Cleaner) getUnusedItems(unused []models.UniBase, harborProjects map[str
 		for _, repo := range project.Repos {
 			if repo.Unused || project.Unused {
 				unusedRepos = append(unusedRepos, models.Image{Name: repo.Name, Project: project.Name, BaseUrl: baseUrl})
-				continue
+				// continue
 			}
 
 			if len(repo.Tags) == 0 {
-				// log.Warn("No tags for repo:", repo.Name)
+				log.Warn("No tags for repo:", repo.Name)
 				continue
 			}
 
