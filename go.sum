@@ -56,6 +56,8 @@ github.com/nice-pink/goutil v0.0.15 h1:G7qV6t+teRroLM9slX5DpoX59Q2cKqDuFN9nRPixn
 github.com/nice-pink/goutil v0.0.15/go.mod h1:Q1MmrAIuePSpgepKVLGVsyzeDHoTfaWbY44eZBdaB4w=
 github.com/nice-pink/goutil v0.0.16 h1:3ssAnN3OlScdNrZ1MQQfufnMXhPy53InEZRkqHbvfHc=
 github.com/nice-pink/goutil v0.0.16/go.mod h1:Q1MmrAIuePSpgepKVLGVsyzeDHoTfaWbY44eZBdaB4w=
+github.com/nice-pink/goutil v0.0.17 h1:oDiX0qKz2O9x2s/pihGxBt6P0aEOVw0howrEUl+CWU8=
+github.com/nice-pink/goutil v0.0.17/go.mod h1:Q1MmrAIuePSpgepKVLGVsyzeDHoTfaWbY44eZBdaB4w=
 github.com/onsi/gomega v1.27.10 h1:naR28SdDFlqrG6kScpT8VWpu1xWY5nJRCF3XaYyBjhI=
 github.com/onsi/gomega v1.27.10/go.mod h1:RsS8tutOdbdgzbPtzzATp12yT7kM5I5aElG3evPbQ0M=
 github.com/pjbgf/sha1cd v0.3.0 h1:4D5XXmUUBUl/xQ6IjCkEAbqXskkq/4O7LmGn0AqMDs4=

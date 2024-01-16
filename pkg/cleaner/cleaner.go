@@ -150,7 +150,10 @@ func (c *Cleaner) Delete(images []models.Image) map[string]error {
 
 		if err != nil {
 
-			key := image.Project + "/" + image.Name + "/" + image.Tag
+			key := image.Project + "/" + image.Name
+			if image.Tag != "" {
+				key += "/" + image.Tag
+			}
 			errors[key] = err
 		}
 	}

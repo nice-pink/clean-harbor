@@ -12,7 +12,7 @@ import (
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
 	"github.com/nice-pink/clean-harbor/pkg/models"
-	filesystem "github.com/nice-pink/gm_filesystem"
+	"github.com/nice-pink/goutil/pkg/filesystem"
 	npjson "github.com/nice-pink/goutil/pkg/json"
 	"github.com/nice-pink/goutil/pkg/log"
 	"github.com/nice-pink/goutil/pkg/network"
@@ -32,7 +32,6 @@ import (
 // }
 
 func main() {
-	action := flag.String("action", "find", "find, delete, findAndDelete")
 	baseFolder := flag.String("baseFolder", "bin", "Base folder.")
 	reposDestFolder := flag.String("reposDestFolder", "repo", "Repo base folder.")
 	repoUrls := flag.String("repoUrls", "", "Comma separated list of repoUrls. E.g. 'git@github.com:nice-pink/goutil.git,git@github.com:nice-pink/clean-harbor.git'")
@@ -43,6 +42,7 @@ func main() {
 	includeUnknownRepos := flag.Bool("includeUnknownRepos", false, "Unknown repo are included (and deleted). Could be, because they are currently unused.")
 	tagsHistory := flag.Int("tagsHistory", 5, "How many tags more than the oldest in use should be kept? Default=5")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
+	dryRun := flag.Bool("dryRun", false, "Do dry run!")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
 	flag.Parse()
 
@@ -50,8 +50,6 @@ func main() {
 	// 	log.Error("Please specify parameter: -repoUrls")
 	// 	os.Exit(2)
 	// }
-
-	DRY_RUN := !*delete
 
 	if *registryBase == "" {
 		*registryBase = os.Getenv("REGISTRY_BASE")
@@ -80,53 +78,24 @@ func main() {
 			BasicUser:     os.Getenv("HARBOR_USERNAME"),
 			BasicPassword: os.Getenv("HARBOR_PASSWORD"),
 		},
+		Timeout: 30.0,
 	}
 	r := network.NewRequester(requestConfig)
 
 	// setup harbor
 	config := harbor.HarborConfig{
-		DryRun:    DRY_RUN,
+		DryRun:    *dryRun,
 		HarborUrl: os.Getenv("HARBOR_API"),
 	}
 	h := harbor.NewHarbor(r, config)
 
 	// setup cleaner
-	dryRun := DRY_RUN
-	c := cleaner.NewCleaner(h, dryRun, *tagsHistory)
+	c := cleaner.NewCleaner(h, *dryRun, *tagsHistory)
 
-	unusedArtifacts := []models.Image{}
-	unusedRepos := []models.Image{}
+	unusedArtifacts, unusedRepos := find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos, *tagsHistory)
 
-	if strings.ToUpper(*action) == "FIND" || strings.ToUpper(*action) == strings.ToUpper("findAndDelete") {
-		unusedArtifacts, unusedRepos = find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos, *tagsHistory)
-	}
-	//  else {
-	// 	unusedFilepath = *unusedArtifactsFilepath
-	// }
-
-	if strings.ToUpper(*action) == "DELETE" || strings.ToUpper(*action) == strings.ToUpper("findAndDelete") {
-		// if unusedFilepath == "" {
-		// 	log.Error("No file path specified containing the artifacts to be deleted!")
-		// 	log.Info("Either choose action 'find' or 'findAndDelete' OR specify -unusedArtifactsFilepath to an already existing file.")
-		// 	os.Exit(2)
-		// }
-		log.Info()
-		log.Info("-------------------")
-		log.Info("Delete artifacts:")
-		start := time.Now()
-		fmt.Println("Start delete:", start.Format(time.RFC3339))
-		c.Delete(unusedArtifacts)
-
-		log.Info()
-		log.Info("-------------------")
-		log.Info("Delete repos:")
-		c.Delete(unusedRepos)
-		// log duration
-		end := time.Now()
-		fmt.Println("End delete:", end.Format(time.RFC3339))
-		fmt.Println("Duration:")
-		duration := end.Sub(start)
-		fmt.Println(duration)
+	if *delete {
+		deleteUnused(c, unusedArtifacts, unusedRepos)
 	}
 }
 
@@ -171,4 +140,46 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	fmt.Println(duration)
 
 	return artifacts, repos
+}
+
+func deleteUnused(c *cleaner.Cleaner, artifacts []models.Image, repos []models.Image) map[string]error {
+	// delete artifacts
+	log.Info()
+	log.Info("-------------------")
+	log.Info("Delete artifacts:")
+	start := time.Now()
+	fmt.Println("Start delete:", start.Format(time.RFC3339))
+	artifactErrors := c.Delete(artifacts)
+
+	// delete repos
+	log.Info()
+	log.Info("-------------------")
+	log.Info("Delete repos:")
+	repoErrors := c.Delete(repos)
+	// log duration
+	end := time.Now()
+	fmt.Println("End delete:", end.Format(time.RFC3339))
+	fmt.Println("Duration:")
+	duration := end.Sub(start)
+	fmt.Println(duration)
+
+	// merge and return
+	MergeErrorMaps(artifactErrors, repoErrors)
+	return artifactErrors
+}
+
+func MergeErrorMaps(e1 map[string]error, e2 map[string]error) {
+	// no repo errors
+	if e2 == nil {
+		return
+	}
+	// no artifact errors
+	if e1 == nil {
+		e1 = e2
+		return
+	}
+	// merge
+	for k, v := range e2 {
+		e1[k] = v
+	}
 }
