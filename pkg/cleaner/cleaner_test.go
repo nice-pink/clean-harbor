@@ -12,8 +12,9 @@ import (
 func TestFindUnsued(t *testing.T) {
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 0
+	UNKNOWN_HISTORY := 0
 
-	c := NewCleaner(h, true, TAGS_HISTORY)
+	c := NewCleaner(h, true, TAGS_HISTORY, UNKNOWN_HISTORY)
 	extensions := []string{".yaml"}
 	filterProjects := []string{}
 	filterRepos := ""
@@ -85,8 +86,9 @@ func TestFindUnsuedNone(t *testing.T) {
 	// app is not contained in used!
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 5
+	UNKNOWN_HISTORY := 0
 
-	c := NewCleaner(h, true, TAGS_HISTORY)
+	c := NewCleaner(h, true, TAGS_HISTORY, UNKNOWN_HISTORY)
 	extensions := []string{".yaml"}
 	filterProjects := []string{}
 	filterRepos := ""
@@ -113,8 +115,9 @@ func TestFindUnsuedNone(t *testing.T) {
 func TestFindUnsuedFilterProjects(t *testing.T) {
 	h := &mock.MockHarbor{}
 	TAGS_HISTORY := 5
+	UNKNOWN_HISTORY := 0
 
-	c := NewCleaner(h, true, TAGS_HISTORY)
+	c := NewCleaner(h, true, TAGS_HISTORY, UNKNOWN_HISTORY)
 	extensions := []string{}
 	filterProjects := []string{"dummy"}
 	filterRepos := ""

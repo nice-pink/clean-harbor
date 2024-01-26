@@ -140,23 +140,3 @@ func GetImageProjects(images []models.Image) map[string]models.ManifestBase {
 
 	return bases
 }
-
-func BuildUniModels(bases map[string]models.ManifestBase) []models.UniBase {
-	uBases := []models.UniBase{}
-	for _, base := range bases {
-		uProjects := []models.UniProject{}
-		// fmt.Println("Base:", base.Name)
-		for _, project := range base.Projects {
-			uRepos := []models.UniRepo{}
-			// fmt.Println("	Project:", project.Name)
-			// fmt.Println("		", project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-			for _, repo := range project.Repos {
-				// fmt.Println("		", repo.Name, repo.Tags)
-				uRepos = append(uRepos, models.UniRepo{Name: repo.Name, Tags: repo.Tags})
-			}
-			uProjects = append(uProjects, models.UniProject{Name: project.Name, Repos: uRepos})
-		}
-		uBases = append(uBases, models.UniBase{Name: base.Name, Projects: uProjects})
-	}
-	return uBases
-}

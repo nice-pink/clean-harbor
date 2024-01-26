@@ -33,15 +33,20 @@ type MockHarbor struct {
 	DeleteError      error
 }
 
-func (h *MockHarbor) GetAll() map[string]models.HarborProject {
-	projects := map[string]models.HarborProject{}
+func (h *MockHarbor) GetAll() map[string]models.RegistryProject {
+	projects := map[string]models.RegistryProject{}
 
 	// get projects
 	projectBody := []byte(payload.GetHarborProjects())
 	projects_page, _ := ParseProjects(projectBody, false)
 	for _, project := range projects_page {
 		project.Repos = map[string]models.HarborRepo{}
-		projects[project.Name] = project
+		projects[project.Name] = models.RegistryProject{
+			Name:      project.Name,
+			Id:        project.Id,
+			RepoCount: project.RepoCount,
+			Repos:     map[string]models.RegistryRepo{},
+		}
 	}
 
 	// iterate over projects
@@ -49,7 +54,8 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 		if project.Name == "web" {
 			// get repos
 			repoBody := []byte(payload.GetHarborRepos())
-			repos, _ := ParseRepos(repoBody, false)
+			harborRepos, _ := ParseRepos(repoBody, false)
+			repos := GetRegistryReposFromArray(harborRepos)
 
 			if len(repos) > 0 {
 				// projects[project.Name].Repos = append(projects[project.Name].Repos, repos...)
@@ -61,11 +67,9 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 
 		// get artifacts
 		for _, repo := range projects[pIndex].Repos {
-			// repoName := GetRepoName(repo.Name)
-			// if repoName == "app" {
-			// fmt.Println("Get", project.Name, repoName)
 			artifactBody := []byte(payload.GetHarborArtifacts())
-			artifacts, _ := ParseArtifacts(artifactBody, false)
+			harborArtifacts, _ := ParseArtifacts(artifactBody, false)
+			artifacts := GetRegistryArtifacts(harborArtifacts)
 
 			if len(artifacts) > 0 {
 				repo.Artifacts = append(repo.Artifacts, artifacts...)
@@ -83,7 +87,7 @@ func (h *MockHarbor) GetAll() map[string]models.HarborProject {
 	return projects
 }
 
-func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error) {
+func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]models.RegistryRepo, error) {
 	// request
 	repos := map[string]models.HarborRepo{}
 
@@ -99,9 +103,6 @@ func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]mod
 
 	// get artifacts
 	for _, repo := range repos {
-		// repoName := GetRepoName(repo.Name)
-		// if repoName == "app" {
-		// fmt.Println("Get", project.Name, repoName)
 		artifactBody := []byte(payload.GetHarborArtifacts())
 		artifacts, _ := ParseArtifacts(artifactBody, false)
 
@@ -116,10 +117,10 @@ func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]mod
 	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
 	// }
 
-	return repos, nil
+	return GetRegistryRepos(repos), nil
 }
 
-func (h *MockHarbor) EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
+func (h *MockHarbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject {
 	return projects
 }
 
@@ -172,6 +173,11 @@ func ParseRepos(body []byte, print bool) ([]models.HarborRepo, error) {
 		fmt.Println(npjson.PrettyPrint(items))
 	}
 
+	// fix repo name: from project/repo -> repo
+	for index, item := range items {
+		items[index].Name = GetRepoName(item.Name)
+	}
+
 	return items, nil
 }
 
@@ -189,4 +195,52 @@ func ParseArtifacts(body []byte, print bool) ([]models.HarborArtifact, error) {
 	}
 
 	return items, nil
+}
+
+//
+
+func GetRegistryRepos(harborRepos map[string]models.HarborRepo) map[string]models.RegistryRepo {
+	repos := map[string]models.RegistryRepo{}
+
+	for _, repo := range harborRepos {
+		repos[repo.Name] = models.RegistryRepo{
+			Name:          repo.Name,
+			ArtifactCount: repo.ArtifactCount,
+			Id:            repo.Id,
+			Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+	}
+
+	return repos
+}
+
+func GetRegistryReposFromArray(harborRepos []models.HarborRepo) map[string]models.RegistryRepo {
+	repos := map[string]models.RegistryRepo{}
+
+	for _, repo := range harborRepos {
+		repos[repo.Name] = models.RegistryRepo{
+			Name:          repo.Name,
+			ArtifactCount: repo.ArtifactCount,
+			Id:            repo.Id,
+			Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+	}
+
+	return repos
+}
+
+func GetRegistryArtifacts(harborArtifacts []models.HarborArtifact) []models.RegistryArtifact {
+	artifacts := []models.RegistryArtifact{}
+	for _, hArtifact := range harborArtifacts {
+		tags := []models.RegistryTag{}
+		for _, tag := range hArtifact.Tags {
+			tags = append(tags, models.RegistryTag{Name: tag.Name, Created: tag.Created})
+		}
+
+		artifacts = append(artifacts, models.RegistryArtifact{
+			Tags:    tags,
+			ID:      hArtifact.ID,
+			Digest:  hArtifact.Digest,
+			Created: hArtifact.Created,
+		})
+	}
+	return artifacts
 }

@@ -41,6 +41,7 @@ func main() {
 	includeUnknownProjects := flag.Bool("includeUnknownProjects", false, "Unknown projects are included (and deleted). Be cautious: Could be unknown, because they are handled differently e.g. pull through cache.")
 	includeUnknownRepos := flag.Bool("includeUnknownRepos", false, "Unknown repo are included (and deleted). Could be, because they are currently unused.")
 	tagsHistory := flag.Int("tagsHistory", 5, "How many tags more than the oldest in use should be kept? Default=5")
+	unknownHistory := flag.Int("unknownHistory", 0, "How many tags of unknown repos should be kept? Default=0")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
 	dryRun := flag.Bool("dryRun", false, "Do dry run!")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
@@ -50,6 +51,12 @@ func main() {
 	// 	log.Error("Please specify parameter: -repoUrls")
 	// 	os.Exit(2)
 	// }
+
+	if *dryRun {
+		log.Info()
+		log.Info("This is a Dry Run!")
+		log.Info()
+	}
 
 	if *registryBase == "" {
 		*registryBase = os.Getenv("REGISTRY_BASE")
@@ -70,6 +77,7 @@ func main() {
 			log.Error("Repo folder does not exist.")
 			os.Exit(2)
 		}
+		log.Info("YES")
 	}
 
 	// setup requester
@@ -90,16 +98,16 @@ func main() {
 	h := harbor.NewHarbor(r, config)
 
 	// setup cleaner
-	c := cleaner.NewCleaner(h, *dryRun, *tagsHistory)
+	c := cleaner.NewCleaner(h, *dryRun, *tagsHistory, *unknownHistory)
 
-	unusedArtifacts, unusedRepos := find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos, *tagsHistory)
+	unusedArtifacts, unusedRepos := find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos)
 
 	if *delete {
 		deleteUnused(c, unusedArtifacts, unusedRepos)
 	}
 }
 
-func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string, tagsHistory int) (artifacts []models.Image, repos []models.Image) {
+func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string) (artifacts []models.Image, repos []models.Image) {
 	start := time.Now()
 	fmt.Println("Start find:", start.Format(time.RFC3339))
 

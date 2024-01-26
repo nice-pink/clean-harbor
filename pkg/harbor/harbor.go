@@ -45,8 +45,8 @@ func NewHarbor(requester Requester, config HarborConfig) *Harbor {
 
 // all
 
-func (h *Harbor) GetAll() map[string]models.HarborProject {
-	projects := map[string]models.HarborProject{}
+func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
+	projects := map[string]models.RegistryProject{}
 
 	// get projects
 	index := 1
@@ -57,8 +57,12 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 		}
 		if len(projects_page) > 0 {
 			for _, project := range projects_page {
-				project.Repos = map[string]models.HarborRepo{}
-				projects[project.Name] = project
+				projects[project.Name] = models.RegistryProject{
+					Name:      project.Name,
+					Id:        project.Id,
+					RepoCount: project.RepoCount,
+					Repos:     map[string]models.RegistryRepo{},
+				}
 			}
 		} else {
 			fmt.Println(strconv.Itoa(len(projects)), "projects.")
@@ -72,10 +76,11 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 		// get repos
 		index = 1
 		for true {
-			repos, err := h.GetRepos(project.Name, index, 100, false)
+			harborRepos, err := h.GetRepos(project.Name, index, 100, false)
 			if err != nil {
 				continue
 			}
+			repos := GetRegistryReposFromArray(harborRepos, filterRepos)
 
 			if len(repos) > 0 {
 				// projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
@@ -96,11 +101,11 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 			index = 1
 			for true {
 				// fmt.Println("Get", project.Name, repo.Name)
-				repoName := GetRepoName(repo.Name)
-				artifacts, err := h.GetArtifacts(project.Name, repoName, index, 100, false)
+				harborArtifacts, err := h.GetArtifacts(project.Name, repo.Name, index, 100, false)
 				if err != nil {
 					continue
 				}
+				artifacts := GetRegistryArtifacts(harborArtifacts)
 
 				if len(artifacts) > 0 {
 					repo.Artifacts = append(repo.Artifacts, artifacts...)
@@ -123,7 +128,7 @@ func (h *Harbor) GetAll() map[string]models.HarborProject {
 
 // all
 
-func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.HarborProject) map[string]models.HarborProject {
+func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject {
 	index := 1
 	// iterate over projects
 	for _, project := range projects {
@@ -132,11 +137,11 @@ func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.HarborProj
 			index = 1
 			for true {
 				// fmt.Println("Get", project.Name, repo.Name)
-				repoName := GetRepoName(repo.Name)
-				artifacts, err := h.GetArtifacts(project.Name, repoName, index, 100, false)
+				harborArtifacts, err := h.GetArtifacts(project.Name, repo.Name, index, 100, false)
 				if err != nil {
 					continue
 				}
+				artifacts := GetRegistryArtifacts(harborArtifacts)
 
 				if len(artifacts) > 0 {
 					repo.Artifacts = append(repo.Artifacts, artifacts...)
@@ -175,6 +180,21 @@ func (h *Harbor) GetProjects(page int, pageSize int, print bool) ([]models.Harbo
 	// fmt.Println(string(body))
 
 	return ParseProjects(body, print)
+}
+
+func GetRegistryProjects(harborProjects []models.HarborProject) []models.RegistryProject {
+	projects := []models.RegistryProject{}
+
+	for _, project := range harborProjects {
+		projects = append(projects, models.RegistryProject{
+			Name:      project.Name,
+			Id:        project.Id,
+			RepoCount: project.RepoCount,
+			Repos:     GetRegistryRepos(project.Repos, ""),
+		})
+	}
+
+	return projects
 }
 
 func ParseProjects(body []byte, print bool) ([]models.HarborProject, error) {
@@ -222,7 +242,7 @@ func ParseProject(body []byte) error {
 
 // repo
 
-func (h *Harbor) GetAllRepos(projectName string, print bool) (map[string]models.HarborRepo, error) {
+func (h *Harbor) GetAllRepos(projectName string, filterRepos string, print bool) (map[string]models.RegistryRepo, error) {
 	// request
 	repos := map[string]models.HarborRepo{}
 
@@ -248,7 +268,7 @@ func (h *Harbor) GetAllRepos(projectName string, print bool) (map[string]models.
 		}
 		index++
 	}
-	return repos, nil
+	return GetRegistryRepos(repos, filterRepos), nil
 }
 
 func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool) ([]models.HarborRepo, error) {
@@ -266,6 +286,38 @@ func (h *Harbor) GetRepos(projectName string, page int, pageSize int, print bool
 	return ParseRepos(body, print)
 }
 
+func GetRegistryRepos(harborRepos map[string]models.HarborRepo, filterRepos string) map[string]models.RegistryRepo {
+	repos := map[string]models.RegistryRepo{}
+
+	for _, repo := range harborRepos {
+		if filterRepos == "" || strings.Contains(repo.Name, filterRepos) {
+			repos[repo.Name] = models.RegistryRepo{
+				Name:          repo.Name,
+				ArtifactCount: repo.ArtifactCount,
+				Id:            repo.Id,
+				Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		}
+	}
+
+	return repos
+}
+
+func GetRegistryReposFromArray(harborRepos []models.HarborRepo, filterRepos string) map[string]models.RegistryRepo {
+	repos := map[string]models.RegistryRepo{}
+
+	for _, repo := range harborRepos {
+		if filterRepos == "" || strings.Contains(repo.Name, filterRepos) {
+			repos[repo.Name] = models.RegistryRepo{
+				Name:          repo.Name,
+				ArtifactCount: repo.ArtifactCount,
+				Id:            repo.Id,
+				Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		}
+	}
+
+	return repos
+}
+
 func ParseRepos(body []byte, print bool) ([]models.HarborRepo, error) {
 	// parse body
 	var items []models.HarborRepo
@@ -277,6 +329,11 @@ func ParseRepos(body []byte, print bool) ([]models.HarborRepo, error) {
 	}
 	if print {
 		fmt.Println(npjson.PrettyPrint(items))
+	}
+
+	// fix repo name: from project/repo -> repo
+	for index, item := range items {
+		items[index].Name = GetRepoName(item.Name)
 	}
 
 	return items, nil
@@ -339,6 +396,24 @@ func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pag
 	return ParseArtifacts(body, print)
 }
 
+func GetRegistryArtifacts(harborArtifacts []models.HarborArtifact) []models.RegistryArtifact {
+	artifacts := []models.RegistryArtifact{}
+	for _, hArtifact := range harborArtifacts {
+		tags := []models.RegistryTag{}
+		for _, tag := range hArtifact.Tags {
+			tags = append(tags, models.RegistryTag{Name: tag.Name, Created: tag.Created})
+		}
+
+		artifacts = append(artifacts, models.RegistryArtifact{
+			Tags:    tags,
+			ID:      hArtifact.ID,
+			Digest:  hArtifact.Digest,
+			Created: hArtifact.Created,
+		})
+	}
+	return artifacts
+}
+
 func ParseArtifacts(body []byte, print bool) ([]models.HarborArtifact, error) {
 	// parse body
 	var items []models.HarborArtifact
@@ -398,31 +473,6 @@ func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, re
 }
 
 // helper
-
-func BuildUniModels(projects map[string]models.HarborProject, baseUrl string) []models.UniBase {
-	uBases := []models.UniBase{}
-	uProjects := []models.UniProject{}
-	// fmt.Println("Base:", base.Name)
-	for _, project := range projects {
-		uRepos := []models.UniRepo{}
-		// fmt.Println("	Project:", project.Name)
-		// fmt.Println("		", project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-		for _, repo := range project.Repos {
-			// fmt.Println("		", repo.Name, repo.Tags)
-			tags := []string{}
-			for _, artifact := range repo.Artifacts {
-				for _, tag := range artifact.Tags {
-					tags = append(tags, tag.Name)
-				}
-			}
-			repoName := GetRepoName(repo.Name)
-			uRepos = append(uRepos, models.UniRepo{Name: repoName, Tags: tags})
-		}
-		uProjects = append(uProjects, models.UniProject{Name: project.Name, Repos: uRepos})
-	}
-	uBases = append(uBases, models.UniBase{Name: baseUrl, Projects: uProjects})
-	return uBases
-}
 
 func (h *Harbor) GetQuery(page int, pageSize int) string {
 	query := ""

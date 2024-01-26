@@ -15,7 +15,7 @@ type UniProject struct {
 
 type UniRepo struct {
 	Name   string
-	Tags   []string
+	Tags   []UniTag
 	Unused bool
 }
 
