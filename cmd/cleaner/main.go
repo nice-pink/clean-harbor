@@ -42,6 +42,7 @@ func main() {
 	includeUnknownRepos := flag.Bool("includeUnknownRepos", false, "Unknown repo are included (and deleted). Could be, because they are currently unused.")
 	tagsHistory := flag.Int("tagsHistory", 5, "How many tags more than the oldest in use should be kept? Default=5")
 	unknownHistory := flag.Int("unknownHistory", 0, "How many tags of unknown repos should be kept? Default=0")
+	requestTimeout := flag.Int("requestTimeout", 30, "Timeout for any api request. Default=30")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
 	dryRun := flag.Bool("dryRun", false, "Do dry run!")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
@@ -86,7 +87,7 @@ func main() {
 			BasicUser:     os.Getenv("HARBOR_USERNAME"),
 			BasicPassword: os.Getenv("HARBOR_PASSWORD"),
 		},
-		Timeout: 30.0,
+		Timeout: time.Duration(*requestTimeout),
 	}
 	r := network.NewRequester(requestConfig)
 
