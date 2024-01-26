@@ -32,5 +32,5 @@ LABEL org.opencontainers.image.source="https://github.com/nice-pink/clean-harbor
 WORKDIR /app
 
 # copy executable
-COPY --from=builder /app/${TARGET} /app/${TARGET}
+COPY --from=builder /app/bin/${TARGET} /app/${TARGET}
 ENTRYPOINT [ "/app/${TARGET}" ]
