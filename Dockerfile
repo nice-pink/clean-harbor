@@ -33,4 +33,4 @@ WORKDIR /app
 
 # copy executable
 COPY --from=builder /app/bin/${TARGET} /app/${TARGET}
-ENTRYPOINT [ "/app/${TARGET}" ]
+# ENTRYPOINT [ "/app/${TARGET}" ]
