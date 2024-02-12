@@ -1,0 +1,13 @@
+{
+    "Registry": {
+        "User": "UserValue",
+        "Password": "PasswordValue",
+        "Api": "ApiUrlValue",
+        "Base": "BaseValue",
+        "Folder": "FolderValue"
+    },
+    "Ssh": {
+        "KeyPath": "KeyPathValue",
+        "KeyName": "KeyNameValue"
+    }
+}

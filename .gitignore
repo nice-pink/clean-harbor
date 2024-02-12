@@ -6,3 +6,4 @@
 bin/
 .env
 output/
+config.json

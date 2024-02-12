@@ -4,6 +4,18 @@ import (
 	"github.com/nice-pink/clean-harbor/pkg/models"
 )
 
+// interfaces
+
+type Registry interface {
+	GetAll(filterRepos string) map[string]models.RegistryProject
+	GetAllRepos(projectName string, filterRepos string, print bool) (map[string]models.RegistryRepo, error)
+	EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject
+	DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error)
+	DeleteRepo(projectName string, repoName string) (bool, error)
+}
+
+// models
+
 func BuildUniModels(projects map[string]models.RegistryProject, baseUrl string) []models.UniBase {
 	uBases := []models.UniBase{}
 	uProjects := []models.UniProject{}

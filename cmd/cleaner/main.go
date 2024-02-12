@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nice-pink/clean-harbor/pkg/cleaner"
+	"github.com/nice-pink/clean-harbor/pkg/config"
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
 	"github.com/nice-pink/clean-harbor/pkg/models"
@@ -45,6 +46,7 @@ func main() {
 	requestTimeout := flag.Int("requestTimeout", 30, "Timeout for any api request. Default=30")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
 	dryRun := flag.Bool("dryRun", false, "Do dry run!")
+	configPath := flag.String("configPath", "", "Config file incl. registry credentials.")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
 	flag.Parse()
 
@@ -53,6 +55,16 @@ func main() {
 	// 	os.Exit(2)
 	// }
 
+	// get config
+	var cfg config.Config
+	if *configPath != "" {
+		cfg = config.GetConfig(*configPath)
+		cfg.IsInitialised = true
+		if cfg.IsInitialised {
+			log.Info("Config file loaded.")
+		}
+	}
+
 	if *dryRun {
 		log.Info()
 		log.Info("This is a Dry Run!")
@@ -60,10 +72,18 @@ func main() {
 	}
 
 	if *registryBase == "" {
-		*registryBase = os.Getenv("REGISTRY_BASE")
+		if cfg.IsInitialised && cfg.Registry.Base != "" {
+			*registryBase = cfg.Registry.Base
+		} else {
+			*registryBase = os.Getenv("REGISTRY_BASE")
+		}
 	}
 	if *registryBase == "" {
-		*reposDestFolder = os.Getenv("REPO_FOLDER")
+		if cfg.IsInitialised && cfg.Registry.Folder != "" {
+			*reposDestFolder = cfg.Registry.Folder
+		} else {
+			*reposDestFolder = os.Getenv("REPO_FOLDER")
+		}
 	}
 
 	// checkout repo
@@ -82,21 +102,39 @@ func main() {
 	}
 
 	// setup requester
+	registryUser := ""
+	if cfg.IsInitialised && cfg.Registry.User != "" {
+		registryUser = cfg.Registry.User
+	} else {
+		registryUser = os.Getenv("REGISTRY_USERNAME")
+	}
+	registryPassword := ""
+	if cfg.IsInitialised && cfg.Registry.Password != "" {
+		registryPassword = cfg.Registry.Password
+	} else {
+		registryPassword = os.Getenv("REGISTRY_PASSWORD")
+	}
 	requestConfig := network.RequestConfig{
 		Auth: network.Auth{
-			BasicUser:     os.Getenv("HARBOR_USERNAME"),
-			BasicPassword: os.Getenv("HARBOR_PASSWORD"),
+			BasicUser:     registryUser,
+			BasicPassword: registryPassword,
 		},
 		Timeout: time.Duration(*requestTimeout),
 	}
 	r := network.NewRequester(requestConfig)
 
 	// setup harbor
-	config := harbor.HarborConfig{
-		DryRun:    *dryRun,
-		HarborUrl: os.Getenv("HARBOR_API"),
+	registryApi := ""
+	if cfg.IsInitialised && cfg.Registry.Api != "" {
+		registryApi = cfg.Registry.Api
+	} else {
+		registryApi = os.Getenv("REGISTRY_API")
 	}
-	h := harbor.NewHarbor(r, config)
+	harborConfig := harbor.HarborConfig{
+		DryRun:    *dryRun,
+		HarborUrl: registryApi,
+	}
+	h := harbor.NewHarbor(r, harborConfig)
 
 	// setup cleaner
 	c := cleaner.NewCleaner(h, *dryRun, *tagsHistory, *unknownHistory)

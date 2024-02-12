@@ -13,26 +13,16 @@ import (
 	"github.com/nice-pink/goutil/pkg/log"
 )
 
-// interfaces
-
-type Registry interface {
-	GetAll(filterRepos string) map[string]models.RegistryProject
-	GetAllRepos(projectName string, filterRepos string, print bool) (map[string]models.RegistryRepo, error)
-	EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject
-	DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error)
-	DeleteRepo(projectName string, repoName string) (bool, error)
-}
-
 // cleaner
 
 type Cleaner struct {
-	r              Registry
+	r              registry.Registry
 	dryRun         bool // do not delete if dry run
 	tagsHistory    int  // amount of artifacts kept for known repos additionally to the oldest known
 	unknownHistory int  // amount of artifacts kept for unknown repos
 }
 
-func NewCleaner(registry Registry, dryRun bool, tagsHistory int, unknownHistory int) *Cleaner {
+func NewCleaner(registry registry.Registry, dryRun bool, tagsHistory int, unknownHistory int) *Cleaner {
 	return &Cleaner{
 		r:              registry,
 		dryRun:         dryRun,
