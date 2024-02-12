@@ -2,7 +2,6 @@ package manifestcrawler
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
@@ -14,8 +13,7 @@ var (
 	ReposBaseFolder string = "bin/repo"
 )
 
-func InitManifestFolder(repoUrls string) bool {
-	sshKeyPath := os.Getenv("SSH_KEY_PATH")
+func InitManifestFolder(repoUrls string, sshKeyPath string) bool {
 	g := git.NewGit(sshKeyPath, "user", "mail")
 
 	urls := strings.Split(repoUrls, ",")

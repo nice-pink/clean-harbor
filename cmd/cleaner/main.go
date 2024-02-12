@@ -89,9 +89,15 @@ func main() {
 	// checkout repo
 	repoDestFolder := filepath.Join(*baseFolder, *reposDestFolder)
 	manifestcrawler.ReposBaseFolder = repoDestFolder
+	sshKeyPath := ""
+	if cfg.IsInitialised && cfg.Ssh.KeyPath != "" {
+		sshKeyPath = cfg.Ssh.KeyPath
+	} else {
+		sshKeyPath = os.Getenv("SSH_KEY_PATH")
+	}
 	if *repoUrls != "" {
 		log.Info("Checkout repos", *repoUrls)
-		manifestcrawler.InitManifestFolder(*repoUrls)
+		manifestcrawler.InitManifestFolder(*repoUrls, sshKeyPath)
 	} else {
 		log.Info("Does repo folder exist?")
 		if !filesystem.DirExists(repoDestFolder) {
