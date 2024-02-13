@@ -114,6 +114,7 @@ func main() {
 	} else {
 		registryUser = os.Getenv("REGISTRY_USERNAME")
 	}
+	log.Info("Registry user:", registryUser)
 	registryPassword := ""
 	if cfg.IsInitialised && cfg.Registry.Password != "" {
 		registryPassword = cfg.Registry.Password
