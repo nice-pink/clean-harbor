@@ -10,5 +10,7 @@
 bin/
 .env
 output/
+config.json
 
 Dockerfile
+random
