@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/go-git/go-git/v5 v5.11.0
-	github.com/nice-pink/goutil v0.0.17
+	github.com/nice-pink/goutil v0.0.30
 )
 
 require (

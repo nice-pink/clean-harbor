@@ -46,6 +46,7 @@ func main() {
 	requestTimeout := flag.Int("requestTimeout", 30, "Timeout for any api request. Default=30")
 	delete := flag.Bool("delete", false, "Should artifacts be deleted! This can't be undone!")
 	dryRun := flag.Bool("dryRun", false, "Do dry run!")
+	logLevel := flag.Int("logLevel", 0, "Log level")
 	configPath := flag.String("configPath", "", "Config file incl. registry credentials.")
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
 	flag.Parse()
@@ -126,7 +127,8 @@ func main() {
 			BasicUser:     registryUser,
 			BasicPassword: registryPassword,
 		},
-		Timeout: time.Duration(*requestTimeout),
+		LogLevel: *logLevel,
+		Timeout:  time.Duration(*requestTimeout),
 	}
 	r := network.NewRequester(requestConfig)
 
