@@ -18,7 +18,7 @@ func InitManifestFolder(repoUrls string, sshKeyPath string) bool {
 
 	urls := strings.Split(repoUrls, ",")
 	for _, url := range urls {
-		g.Clone(url, ReposBaseFolder, "", true)
+		g.Clone(url, ReposBaseFolder, "", true, true)
 	}
 
 	return true

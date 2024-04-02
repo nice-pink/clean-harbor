@@ -23,6 +23,6 @@ func main() {
 	r := network.NewRequester(requestConfig)
 	h := harbor.NewHarbor(r, config)
 
-	h.GetAll()
+	h.GetAll("")
 	// h.GetProjects(1, 2, true)
 }
