@@ -162,7 +162,6 @@ func main() {
 
 func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string) (artifacts []models.Image, repos []models.Image) {
 	start := time.Now()
-	fmt.Println("Start find:", start.Format(time.RFC3339))
 
 	// get projects to filter by
 	filterProjects := []string{}
@@ -209,7 +208,6 @@ func deleteUnused(c *cleaner.Cleaner, artifacts []models.Image, repos []models.I
 	log.Info("-------------------")
 	log.Info("Delete artifacts:")
 	start := time.Now()
-	fmt.Println("Start delete:", start.Format(time.RFC3339))
 	artifactErrors := c.Delete(artifacts)
 
 	// delete repos
