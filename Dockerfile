@@ -31,6 +31,9 @@ LABEL org.opencontainers.image.source="https://github.com/nice-pink/clean-harbor
 
 WORKDIR /app
 
+# copy config.json (check .dockerignore)
+# COPY config.json .
+
 # copy executable
 COPY --from=builder /app/bin/${TARGET} /app/${TARGET}
-# ENTRYPOINT [ "/app/${TARGET}" ]
+ENTRYPOINT [ "/app/cleaner" ]

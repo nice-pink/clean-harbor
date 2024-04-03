@@ -51,6 +51,11 @@ func main() {
 	// unusedArtifactsFilepath := flag.String("unusedArtifactsFilepath", "", "Set file path if only delete already found artifacts.")
 	flag.Parse()
 
+	fmt.Print("Args:")
+	flag.VisitAll(func(f *flag.Flag) {
+		fmt.Printf("%s: %s\n", f.Name, f.Value)
+	})
+
 	// if *repoUrls == "" {
 	// 	log.Error("Please specify parameter: -repoUrls")
 	// 	os.Exit(2)

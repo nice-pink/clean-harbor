@@ -7,10 +7,12 @@
 .gitignore
 
 # 
+Dockerfile
 bin/
 .env
 output/
+random
+
+# config
 config.json
 
-Dockerfile
-random
