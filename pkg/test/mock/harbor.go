@@ -7,7 +7,7 @@ import (
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/clean-harbor/pkg/test/payload"
-	npjson "github.com/nice-pink/goutil/pkg/json"
+	npjson "github.com/nice-pink/goutil/pkg/data"
 )
 
 // requester
@@ -33,7 +33,7 @@ type MockHarbor struct {
 	DeleteError      error
 }
 
-func (h *MockHarbor) GetAll() map[string]models.RegistryProject {
+func (h *MockHarbor) GetAll(filterRepos string) (map[string]models.RegistryProject, error) {
 	projects := map[string]models.RegistryProject{}
 
 	// get projects
@@ -55,10 +55,9 @@ func (h *MockHarbor) GetAll() map[string]models.RegistryProject {
 			// get repos
 			repoBody := []byte(payload.GetHarborRepos())
 			harborRepos, _ := ParseRepos(repoBody, false)
-			repos := GetRegistryReposFromArray(harborRepos)
+			repos := GetRegistryReposFromArray(harborRepos, filterRepos)
 
 			if len(repos) > 0 {
-				// projects[project.Name].Repos = append(projects[project.Name].Repos, repos...)
 				for _, repo := range repos {
 					projects[project.Name].Repos[repo.Name] = repo
 				}
@@ -74,20 +73,15 @@ func (h *MockHarbor) GetAll() map[string]models.RegistryProject {
 			if len(artifacts) > 0 {
 				repo.Artifacts = append(repo.Artifacts, artifacts...)
 			}
-			// }
 			projects[project.Name].Repos[repo.Name] = repo
 		}
 
 	}
 
-	// for _, project := range projects {
-	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-	// }
-
-	return projects
+	return projects, nil
 }
 
-func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]models.RegistryRepo, error) {
+func (h *MockHarbor) GetAllRepos(projectName string, filterRepos string, print bool) (map[string]models.RegistryRepo, error) {
 	// request
 	repos := map[string]models.HarborRepo{}
 
@@ -109,19 +103,14 @@ func (h *MockHarbor) GetAllRepos(projectName string, print bool) (map[string]mod
 		if len(artifacts) > 0 {
 			repo.Artifacts = append(repo.Artifacts, artifacts...)
 		}
-		// }
 		repos[repo.Name] = repo
 	}
 
-	// for _, project := range projects {
-	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-	// }
-
-	return GetRegistryRepos(repos), nil
+	return GetRegistryRepos(repos, filterRepos), nil
 }
 
-func (h *MockHarbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject {
-	return projects
+func (h *MockHarbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) (map[string]models.RegistryProject, error) {
+	return projects, nil
 }
 
 func (h *MockHarbor) DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error) {
@@ -141,7 +130,8 @@ func (h *MockHarbor) DeleteRepo(projectName string, repoName string) (bool, erro
 // helper - duplicated code!
 
 func GetRepoName(fullName string) string {
-	return strings.Split(fullName, "/")[1]
+	parts := strings.Split(fullName, "/")
+	return parts[len(parts)-1]
 }
 
 func ParseProjects(body []byte, print bool) ([]models.HarborProject, error) {
@@ -199,29 +189,33 @@ func ParseArtifacts(body []byte, print bool) ([]models.HarborArtifact, error) {
 
 //
 
-func GetRegistryRepos(harborRepos map[string]models.HarborRepo) map[string]models.RegistryRepo {
+func GetRegistryRepos(harborRepos map[string]models.HarborRepo, filterRepos string) map[string]models.RegistryRepo {
 	repos := map[string]models.RegistryRepo{}
 
 	for _, repo := range harborRepos {
-		repos[repo.Name] = models.RegistryRepo{
-			Name:          repo.Name,
-			ArtifactCount: repo.ArtifactCount,
-			Id:            repo.Id,
-			Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		if filterRepos == "" || strings.Contains(repo.Name, filterRepos) {
+			repos[repo.Name] = models.RegistryRepo{
+				Name:          repo.Name,
+				ArtifactCount: repo.ArtifactCount,
+				Id:            repo.Id,
+				Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		}
 	}
 
 	return repos
 }
 
-func GetRegistryReposFromArray(harborRepos []models.HarborRepo) map[string]models.RegistryRepo {
+func GetRegistryReposFromArray(harborRepos []models.HarborRepo, filterRepos string) map[string]models.RegistryRepo {
 	repos := map[string]models.RegistryRepo{}
 
 	for _, repo := range harborRepos {
-		repos[repo.Name] = models.RegistryRepo{
-			Name:          repo.Name,
-			ArtifactCount: repo.ArtifactCount,
-			Id:            repo.Id,
-			Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		if filterRepos == "" || strings.Contains(repo.Name, filterRepos) {
+			repos[repo.Name] = models.RegistryRepo{
+				Name:          repo.Name,
+				ArtifactCount: repo.ArtifactCount,
+				Id:            repo.Id,
+				Artifacts:     GetRegistryArtifacts(repo.Artifacts)}
+		}
 	}
 
 	return repos

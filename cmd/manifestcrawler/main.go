@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
-	npjson "github.com/nice-pink/goutil/pkg/json"
+	npjson "github.com/nice-pink/goutil/pkg/data"
 )
 
 func main() {

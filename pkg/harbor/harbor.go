@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
-	npjson "github.com/nice-pink/goutil/pkg/json"
+	npjson "github.com/nice-pink/goutil/pkg/data"
 	"github.com/nice-pink/goutil/pkg/log"
-	"github.com/nice-pink/goutil/pkg/network"
 )
 
 // dependencies
@@ -24,7 +23,6 @@ type Requester interface {
 type HarborConfig struct {
 	DryRun    bool
 	HarborUrl string
-	BasicAuth network.Auth
 }
 
 type Harbor struct {
@@ -45,7 +43,7 @@ func NewHarbor(requester Requester, config HarborConfig) *Harbor {
 
 // all
 
-func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
+func (h *Harbor) GetAll(filterRepos string) (map[string]models.RegistryProject, error) {
 	projects := map[string]models.RegistryProject{}
 
 	// get projects
@@ -53,7 +51,7 @@ func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
 	for true {
 		projects_page, err := h.GetProjects(index, 100, false)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("could not get projects (page %d): %w", index, err)
 		}
 		if len(projects_page) > 0 {
 			for _, project := range projects_page {
@@ -78,13 +76,11 @@ func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
 		for true {
 			harborRepos, err := h.GetRepos(project.Name, index, 100, false)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("could not get repos of project %s (page %d): %w", project.Name, index, err)
 			}
 			repos := GetRegistryReposFromArray(harborRepos, filterRepos)
 
 			if len(repos) > 0 {
-				// projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
-				// projects[pIndex].Repos = append(projects[pIndex].Repos, repos...)
 				for _, repo := range repos {
 					projects[project.Name].Repos[repo.Name] = repo
 				}
@@ -100,10 +96,9 @@ func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
 		for _, repo := range projects[project.Name].Repos {
 			index = 1
 			for true {
-				// fmt.Println("Get", project.Name, repo.Name)
 				harborArtifacts, err := h.GetArtifacts(project.Name, repo.Name, index, 100, false)
 				if err != nil {
-					continue
+					return nil, fmt.Errorf("could not get artifacts of %s/%s (page %d): %w", project.Name, repo.Name, index, err)
 				}
 				artifacts := GetRegistryArtifacts(harborArtifacts)
 
@@ -119,16 +114,12 @@ func (h *Harbor) GetAll(filterRepos string) map[string]models.RegistryProject {
 		}
 	}
 
-	// for _, project := range projects {
-	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-	// }
-
-	return projects
+	return projects, nil
 }
 
 // all
 
-func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject {
+func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.RegistryProject) (map[string]models.RegistryProject, error) {
 	index := 1
 	// iterate over projects
 	for _, project := range projects {
@@ -136,10 +127,9 @@ func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.RegistryPr
 		for _, repo := range projects[project.Name].Repos {
 			index = 1
 			for true {
-				// fmt.Println("Get", project.Name, repo.Name)
 				harborArtifacts, err := h.GetArtifacts(project.Name, repo.Name, index, 100, false)
 				if err != nil {
-					continue
+					return nil, fmt.Errorf("could not get artifacts of %s/%s (page %d): %w", project.Name, repo.Name, index, err)
 				}
 				artifacts := GetRegistryArtifacts(harborArtifacts)
 
@@ -155,15 +145,12 @@ func (h *Harbor) EnrichReposWithArtificats(projects map[string]models.RegistryPr
 		}
 	}
 
-	// for _, project := range projects {
-	// 	fmt.Println(project.Name, "has repos", strconv.Itoa(len(project.Repos)))
-	// }
-
-	return projects
+	return projects, nil
 }
 
 func GetRepoName(fullName string) string {
-	return strings.Split(fullName, "/")[1]
+	parts := strings.Split(fullName, "/")
+	return parts[len(parts)-1]
 }
 
 // project
@@ -260,7 +247,10 @@ func (h *Harbor) GetAllRepos(projectName string, filterRepos string, print bool)
 
 		// parse body
 		newRepos, err := ParseRepos(body, print)
-		if len(newRepos) == 0 || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		if len(newRepos) == 0 {
 			break
 		}
 		for _, repo := range newRepos {
@@ -374,7 +364,7 @@ func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 	url := h.config.HarborUrl + path
 	success, err := h.requester.Delete(url)
 	if !success || err != nil {
-		log.Error("Deleting not successful!")
+		log.Error("Deleting repo not successful:", path)
 	}
 	return success, err
 }
@@ -383,7 +373,9 @@ func (h *Harbor) DeleteRepo(projectName string, repoName string) (bool, error) {
 
 func (h *Harbor) GetArtifacts(projectName string, repoName string, page int, pageSize int, print bool) ([]models.HarborArtifact, error) {
 	// request
-	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts" + h.GetQuery(page, pageSize)
+	// sort=-push_time: newest artifacts first - the keep-newest logic in the
+	// cleaner depends on this order, so it must not rely on the server default.
+	path := "/projects/" + projectName + "/repositories/" + repoName + "/artifacts" + h.GetQuery(page, pageSize) + "&sort=-push_time"
 	url := h.config.HarborUrl + path
 	body, err := h.requester.Get(url, false)
 	if err != nil {
@@ -467,7 +459,7 @@ func (h *Harbor) DeleteArtifact(artifactReference string, projectName string, re
 
 	success, err := h.requester.Delete(url)
 	if !success || err != nil {
-		log.Error("Deleting not successful!")
+		log.Error("Deleting artifact not successful:", url)
 	}
 	return success, err
 }

@@ -19,9 +19,28 @@ func TestGetAll(t *testing.T) {
 
 	r := &mock.MockRequester{JsonBody: body}
 	h := NewHarbor(r, config)
-	projects := h.GetAll()
-	if len(projects) == 0 {
-		t.Error("nothing returned")
+	projects, err := h.GetAll("")
+	if err != nil {
+		t.Error(err)
+	}
+	// an empty project list is a valid response
+	if len(projects) != 0 {
+		t.Error("expected empty project list")
+	}
+}
+
+func TestGetAllInvalidBody(t *testing.T) {
+	config := HarborConfig{
+		DryRun:    true,
+		HarborUrl: "api.url",
+	}
+
+	// a Harbor error response must not be mistaken for an empty result
+	r := &mock.MockRequester{JsonBody: `{"errors":[{"code":"UNAUTHORIZED","message":"unauthorized"}]}`}
+	h := NewHarbor(r, config)
+	_, err := h.GetAll("")
+	if err == nil {
+		t.Error("expected error for invalid response body, got nil")
 	}
 }
 

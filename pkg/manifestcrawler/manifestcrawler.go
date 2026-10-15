@@ -6,7 +6,7 @@ import (
 
 	"github.com/nice-pink/clean-harbor/pkg/models"
 	"github.com/nice-pink/goutil/pkg/filesystem"
-	"github.com/nice-pink/goutil/pkg/git"
+	"github.com/nice-pink/goutil/pkg/repo"
 )
 
 var (
@@ -14,11 +14,14 @@ var (
 )
 
 func InitManifestFolder(repoUrls string, sshKeyPath string) bool {
-	g := git.NewGit(sshKeyPath, "user", "mail")
+	g := repo.NewRepoHandle(sshKeyPath, "user", "mail")
 
 	urls := strings.Split(repoUrls, ",")
 	for _, url := range urls {
-		g.Clone(url, ReposBaseFolder, "", true, true)
+		if err := g.Clone(url, ReposBaseFolder, "", true, true); err != nil {
+			fmt.Println("Could not clone repo", url, ":", err)
+			return false
+		}
 	}
 
 	return true
