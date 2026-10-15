@@ -7,9 +7,9 @@ import (
 // interfaces
 
 type Registry interface {
-	GetAll(filterRepos string) map[string]models.RegistryProject
+	GetAll(filterRepos string) (map[string]models.RegistryProject, error)
 	GetAllRepos(projectName string, filterRepos string, print bool) (map[string]models.RegistryRepo, error)
-	EnrichReposWithArtificats(projects map[string]models.RegistryProject) map[string]models.RegistryProject
+	EnrichReposWithArtificats(projects map[string]models.RegistryProject) (map[string]models.RegistryProject, error)
 	DeleteArtifact(artifactReference string, projectName string, repoName string) (bool, error)
 	DeleteRepo(projectName string, repoName string) (bool, error)
 }

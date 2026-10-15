@@ -31,23 +31,14 @@ func NewCleaner(registry registry.Registry, dryRun bool, tagsHistory int, unknow
 	}
 }
 
-// clean unused
-
-func (c *Cleaner) Remove(models []models.UniBase) (failed []string, succeed []string) {
-	failed = append(failed, "one")
-
-	if c.dryRun {
-		fmt.Println("Dry run.")
-	}
-
-	return failed, nil
-}
-
 // find unused
 
-func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, filterProjects []string, filterRepos string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) ([]models.Image, []models.Image, []models.UniBase) {
+func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []string, filterProjects []string, filterRepos string, ignoreUnsuedProjects bool, ignoreUnsuedRepos bool) ([]models.Image, []models.Image, []models.UniBase, error) {
 	// get harbor and manifest models
-	regModels, regProjects, manifestModels := c.generateModels(repoFolder, baseUrl, extensions, filterProjects, filterRepos)
+	regModels, regProjects, manifestModels, err := c.generateModels(repoFolder, baseUrl, extensions, filterProjects, filterRepos)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	unused := regModels
 
 	// get base project
@@ -85,19 +76,24 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 						}
 					} else {
 
-						// delete repo (after artifacts were removed)
+						// repo is not referenced in the manifests
 						fmt.Println(" UNUSED! 💥")
 						if !ignoreUnsuedRepos {
-							// log.Info("Include unused repo.")
-							// keep
 							if c.unknownHistory > 0 {
+								// keep the newest digests, delete only older artifacts.
+								// the repo itself must NOT be queued for deletion,
+								// otherwise the kept artifacts would be removed with it.
 								unusedTags := c.getUnusedTags(hRepo.Tags, mRepo.Tags, c.unknownHistory)
 								if len(unusedTags) > 0 {
 									hRepo.Tags = unusedTags
+									repos = append(repos, hRepo)
 								}
+								// else: nothing older than the kept history -> keep repo entirely
+							} else {
+								// no history kept -> the whole repo can go
+								hRepo.Unused = true
+								repos = append(repos, hRepo)
 							}
-							hRepo.Unused = true
-							repos = append(repos, hRepo)
 						}
 					}
 				}
@@ -124,7 +120,7 @@ func (c *Cleaner) FindUnused(repoFolder string, baseUrl string, extensions []str
 	// get unsed artifacts and repos
 	unusedArtifacts, unsuedRepos := c.getUnusedItems(unused, regProjects, baseUrl)
 
-	return unusedArtifacts, unsuedRepos, unused
+	return unusedArtifacts, unsuedRepos, unused, nil
 }
 
 // delete
@@ -175,8 +171,10 @@ func (c *Cleaner) getUnusedItems(unused []models.UniBase, regProjects map[string
 	for _, project := range unusedProjects {
 		for _, repo := range project.Repos {
 			if repo.Unused || project.Unused {
+				// whole repo (or project) is queued for deletion.
+				// do not also collect artifacts - the repo deletion removes them anyway.
 				unusedRepos = append(unusedRepos, models.Image{Name: repo.Name, Project: project.Name, BaseUrl: baseUrl})
-				// continue
+				continue
 			}
 
 			if len(repo.Tags) == 0 {
@@ -265,36 +263,46 @@ func (c *Cleaner) getUnusedTags(regTags []models.UniTag, manifestTags []string, 
 
 // get models
 
-func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string, filterProjects []string, filterRepos string) (regUniModels []models.UniBase, regProjects map[string]models.RegistryProject, manifestModels map[string]models.ManifestBase) {
+func (c *Cleaner) generateModels(repoFolder string, baseUrl string, extensions []string, filterProjects []string, filterRepos string) (regUniModels []models.UniBase, regProjects map[string]models.RegistryProject, manifestModels map[string]models.ManifestBase, err error) {
 	// generate harbor models
 	if len(filterProjects) == 0 {
-		regProjects = c.r.GetAll(filterRepos)
+		regProjects, err = c.r.GetAll(filterRepos)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("could not get harbor projects: %w", err)
+		}
 	} else {
 		regProjects = map[string]models.RegistryProject{}
 		for _, name := range filterProjects {
-			log.Info("--- Get repos for project:")
-			repos, _ := c.r.GetAllRepos(name, filterRepos, false)
+			log.Info("--- Get repos for project:", name)
+			repos, err := c.r.GetAllRepos(name, filterRepos, false)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("could not get repos of project %s: %w", name, err)
+			}
 			regProjects[name] = models.RegistryProject{Name: name, Repos: repos}
-			log.Info("Got", strconv.Itoa(len(repos)), "repos.")
+			log.Info("Got", strconv.Itoa(len(repos)), "repos for project", name)
 		}
-		regProjects = c.r.EnrichReposWithArtificats(regProjects)
+		regProjects, err = c.r.EnrichReposWithArtificats(regProjects)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("could not get artifacts: %w", err)
+		}
 	}
 
 	if len(regProjects) == 0 {
-		fmt.Println("No harbor projects.")
-		return
+		return nil, nil, nil, fmt.Errorf("no harbor projects found")
 	}
 	regUniModels = registry.BuildUniModels(regProjects, baseUrl)
 
 	// generate manifest models
 	_, _, manifestProjects, err := manifestcrawler.GetImagesByRepo(repoFolder, baseUrl, extensions)
-	if err != nil || len(manifestProjects) == 0 {
-		fmt.Println("No harbor projects.")
-		return
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("could not crawl manifests: %w", err)
+	}
+	if len(manifestProjects) == 0 {
+		return nil, nil, nil, fmt.Errorf("no manifest projects found - no image references for base %s in %s", baseUrl, repoFolder)
 	}
 
 	// return
-	return regUniModels, regProjects, manifestProjects
+	return regUniModels, regProjects, manifestProjects, nil
 }
 
 // helper

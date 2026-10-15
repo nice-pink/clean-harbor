@@ -13,10 +13,9 @@ import (
 	"github.com/nice-pink/clean-harbor/pkg/harbor"
 	"github.com/nice-pink/clean-harbor/pkg/manifestcrawler"
 	"github.com/nice-pink/clean-harbor/pkg/models"
+	npjson "github.com/nice-pink/goutil/pkg/data"
 	"github.com/nice-pink/goutil/pkg/filesystem"
-	npjson "github.com/nice-pink/goutil/pkg/json"
 	"github.com/nice-pink/goutil/pkg/log"
-	"github.com/nice-pink/goutil/pkg/network"
 )
 
 // test
@@ -64,11 +63,14 @@ func main() {
 	// get config
 	var cfg config.Config
 	if *configPath != "" {
-		cfg = config.GetConfig(*configPath)
-		cfg.IsInitialised = true
-		if cfg.IsInitialised {
-			log.Info("Config file loaded.")
+		var err error
+		cfg, err = config.GetConfig(*configPath)
+		if err != nil {
+			log.Error(err)
+			os.Exit(2)
 		}
+		cfg.IsInitialised = true
+		log.Info("Config file loaded.")
 	}
 
 	if *dryRun {
@@ -84,7 +86,8 @@ func main() {
 			*registryBase = os.Getenv("REGISTRY_BASE")
 		}
 	}
-	if *registryBase == "" {
+	if *reposDestFolder == "repo" {
+		// flag not set explicitly - fall back to config or env
 		if cfg.IsInitialised && cfg.Registry.Folder != "" {
 			*reposDestFolder = cfg.Registry.Folder
 		} else {
@@ -127,15 +130,6 @@ func main() {
 	} else {
 		registryPassword = os.Getenv("REGISTRY_PASSWORD")
 	}
-	requestConfig := network.RequestConfig{
-		Auth: network.Auth{
-			BasicUser:     registryUser,
-			BasicPassword: registryPassword,
-		},
-		LogLevel: *logLevel,
-		Timeout:  time.Duration(*requestTimeout),
-	}
-	r := network.NewRequester(requestConfig)
 
 	// setup harbor
 	registryApi := ""
@@ -144,6 +138,24 @@ func main() {
 	} else {
 		registryApi = os.Getenv("REGISTRY_API")
 	}
+
+	// fail fast on missing configuration instead of silently doing nothing
+	if registryApi == "" {
+		log.Error("No registry API url configured. Set 'Registry.Api' in the config file or env var REGISTRY_API. E.g. 'https://harbor.example.com/api/v2.0'")
+		os.Exit(2)
+	}
+	if *registryBase == "" {
+		log.Error("No registry base configured. Set 'Registry.Base' in the config file, env var REGISTRY_BASE or pass -registryBase. E.g. 'harbor.example.com'")
+		os.Exit(2)
+	}
+	if !strings.Contains(registryApi, "/api/v2.0") {
+		log.Warn("Registry API url does not contain '/api/v2.0' - make sure it points to the Harbor v2.0 API, not the registry host itself!")
+	}
+	log.Info("Registry API:", registryApi)
+	log.Info("Registry base:", *registryBase)
+
+	r := harbor.NewHttpClient(registryUser, registryPassword, *requestTimeout, *logLevel)
+
 	harborConfig := harbor.HarborConfig{
 		DryRun:    *dryRun,
 		HarborUrl: registryApi,
@@ -153,14 +165,22 @@ func main() {
 	// setup cleaner
 	c := cleaner.NewCleaner(h, *dryRun, *tagsHistory, *unknownHistory)
 
-	unusedArtifacts, unusedRepos := find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos)
+	unusedArtifacts, unusedRepos, err := find(c, *baseFolder, repoDestFolder, *registryBase, !*includeUnknownProjects, !*includeUnknownRepos, *filterProjects, *filterRepos)
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
 
 	if *delete {
-		deleteUnused(c, unusedArtifacts, unusedRepos)
+		deleteErrors := deleteUnused(c, unusedArtifacts, unusedRepos)
+		if len(deleteErrors) > 0 {
+			log.Error("Deletion finished with", len(deleteErrors), "errors.")
+			os.Exit(1)
+		}
 	}
 }
 
-func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string) (artifacts []models.Image, repos []models.Image) {
+func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registryBase string, ignoreUnusedProjects bool, ignoreUnusedRepos bool, filterProjectsString string, filterRepos string) ([]models.Image, []models.Image, error) {
 	start := time.Now()
 
 	// get projects to filter by
@@ -173,7 +193,10 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	// get unused projects
 	extensions := []string{".yaml"}
 
-	artifacts, repos, unused := c.FindUnused(reposDestFolder, registryBase, extensions, filterProjects, filterRepos, ignoreUnusedProjects, ignoreUnusedRepos)
+	artifacts, repos, unused, err := c.FindUnused(reposDestFolder, registryBase, extensions, filterProjects, filterRepos, ignoreUnusedProjects, ignoreUnusedRepos)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// print unsued images
 	unusedFilepath := filepath.Join(baseFolder, "unused.json")
@@ -199,7 +222,7 @@ func find(c *cleaner.Cleaner, baseFolder string, reposDestFolder string, registr
 	duration := end.Sub(start)
 	fmt.Println(duration)
 
-	return artifacts, repos
+	return artifacts, repos, nil
 }
 
 func deleteUnused(c *cleaner.Cleaner, artifacts []models.Image, repos []models.Image) map[string]error {

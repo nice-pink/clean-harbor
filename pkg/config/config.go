@@ -2,10 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
-
-	"github.com/nice-pink/goutil/pkg/log"
 )
 
 // config
@@ -29,23 +28,23 @@ type Config struct {
 	IsInitialised bool
 }
 
-func GetConfig(path string) Config {
+func GetConfig(path string) (Config, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Error(err, "Cannot open config.")
+		return Config{}, fmt.Errorf("cannot open config %s: %w", path, err)
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		log.Error(err, "Cannot read config.")
+		return Config{}, fmt.Errorf("cannot read config %s: %w", path, err)
 	}
 
 	var config Config
 	err = json.Unmarshal(data, &config)
 	if err != nil {
-		log.Error(err, "Cannot parse config.")
+		return Config{}, fmt.Errorf("cannot parse config %s: %w", path, err)
 	}
 
-	return config
+	return config, nil
 }
